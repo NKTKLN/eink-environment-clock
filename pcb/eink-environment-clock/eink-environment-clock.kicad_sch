@@ -2717,7 +2717,7 @@
 		(uuid "e8d8ad64-7cce-4de2-a4ad-76a1bc2e367f")
 	)
 	(junction
-		(at 55.88 67.31)
+		(at 53.34 67.31)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "04706615-19d7-4e9e-99d8-45e8f22d4b07")
@@ -2838,7 +2838,7 @@
 	)
 	(wire
 		(pts
-			(xy 46.99 55.88) (xy 59.69 55.88)
+			(xy 44.45 55.88) (xy 59.69 55.88)
 		)
 		(stroke
 			(width 0)
@@ -2868,7 +2868,7 @@
 	)
 	(wire
 		(pts
-			(xy 59.69 53.34) (xy 55.88 53.34)
+			(xy 59.69 53.34) (xy 53.34 53.34)
 		)
 		(stroke
 			(width 0)
@@ -2888,7 +2888,7 @@
 	)
 	(wire
 		(pts
-			(xy 38.1 55.88) (xy 39.37 55.88)
+			(xy 35.56 55.88) (xy 36.83 55.88)
 		)
 		(stroke
 			(width 0)
@@ -2898,7 +2898,7 @@
 	)
 	(wire
 		(pts
-			(xy 46.99 43.18) (xy 59.69 43.18)
+			(xy 44.45 43.18) (xy 59.69 43.18)
 		)
 		(stroke
 			(width 0)
@@ -2928,7 +2928,7 @@
 	)
 	(wire
 		(pts
-			(xy 45.72 67.31) (xy 46.99 67.31)
+			(xy 43.18 67.31) (xy 44.45 67.31)
 		)
 		(stroke
 			(width 0)
@@ -3098,7 +3098,7 @@
 	)
 	(wire
 		(pts
-			(xy 55.88 53.34) (xy 55.88 67.31)
+			(xy 53.34 53.34) (xy 53.34 67.31)
 		)
 		(stroke
 			(width 0)
@@ -3118,7 +3118,7 @@
 	)
 	(wire
 		(pts
-			(xy 54.61 67.31) (xy 55.88 67.31)
+			(xy 52.07 67.31) (xy 53.34 67.31)
 		)
 		(stroke
 			(width 0)
@@ -3158,7 +3158,7 @@
 	)
 	(wire
 		(pts
-			(xy 38.1 50.8) (xy 39.37 50.8)
+			(xy 35.56 50.8) (xy 36.83 50.8)
 		)
 		(stroke
 			(width 0)
@@ -3238,7 +3238,7 @@
 	)
 	(wire
 		(pts
-			(xy 46.99 50.8) (xy 59.69 50.8)
+			(xy 44.45 50.8) (xy 59.69 50.8)
 		)
 		(stroke
 			(width 0)
@@ -3248,7 +3248,7 @@
 	)
 	(wire
 		(pts
-			(xy 55.88 67.31) (xy 57.15 67.31)
+			(xy 53.34 67.31) (xy 54.61 67.31)
 		)
 		(stroke
 			(width 0)
@@ -3348,7 +3348,7 @@
 	)
 	(wire
 		(pts
-			(xy 38.1 43.18) (xy 39.37 43.18)
+			(xy 35.56 43.18) (xy 36.83 43.18)
 		)
 		(stroke
 			(width 0)
@@ -3378,7 +3378,7 @@
 	)
 	(global_label "UART_RX"
 		(shape input)
-		(at 45.72 67.31 180)
+		(at 43.18 67.31 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -3388,7 +3388,7 @@
 		)
 		(uuid "07992c10-ee7c-4092-bfbe-68f9e844c996")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 34.631 67.31 0)
+			(at 32.091 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3664,7 +3664,7 @@
 	)
 	(global_label "UART_TX"
 		(shape output)
-		(at 38.1 43.18 180)
+		(at 35.56 43.18 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -3674,7 +3674,7 @@
 		)
 		(uuid "65bcc1fb-3ef4-42b3-83f7-dd48b3f5bea7")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 27.3134 43.18 0)
+			(at 24.7734 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3686,7 +3686,7 @@
 	)
 	(global_label "SPI_SCK"
 		(shape output)
-		(at 38.1 50.8 180)
+		(at 35.56 50.8 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -3696,7 +3696,7 @@
 		)
 		(uuid "69d7825f-8190-434d-bd2b-49dcb9bb86d3")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 27.3134 50.8 0)
+			(at 24.7734 50.8 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3708,7 +3708,7 @@
 	)
 	(global_label "SPI_MOSI"
 		(shape output)
-		(at 38.1 55.88 180)
+		(at 35.56 55.88 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -3718,7 +3718,7 @@
 		)
 		(uuid "86b8e9ed-954c-4e48-afbe-8fe6469faabc")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 26.4667 55.88 0)
+			(at 23.9267 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4174,7 +4174,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 60.96 67.31 270)
+		(at 58.42 67.31 270)
 		(mirror x)
 		(unit 1)
 		(exclude_from_sim no)
@@ -4183,7 +4183,7 @@
 		(dnp no)
 		(uuid "0dd01d1c-5eba-476f-9256-aae990d4caf6")
 		(property "Reference" "R7"
-			(at 61.214 72.39 90)
+			(at 58.674 72.39 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4192,7 +4192,7 @@
 			)
 		)
 		(property "Value" "R7_UART_TX_20k"
-			(at 74.422 69.85 90)
+			(at 71.882 69.85 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4201,7 +4201,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal"
-			(at 60.96 69.088 90)
+			(at 58.42 69.088 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4210,7 +4210,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 60.96 67.31 0)
+			(at 58.42 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4219,7 +4219,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 60.96 67.31 0)
+			(at 58.42 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4650,7 +4650,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 50.8 67.31 270)
+		(at 48.26 67.31 270)
 		(mirror x)
 		(unit 1)
 		(exclude_from_sim no)
@@ -4659,7 +4659,7 @@
 		(dnp no)
 		(uuid "36314f33-91ec-490b-8db7-244b0991c8f2")
 		(property "Reference" "R6"
-			(at 51.054 61.976 90)
+			(at 48.514 61.976 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4668,7 +4668,7 @@
 			)
 		)
 		(property "Value" "R6_UART_RX_10k"
-			(at 53.594 64.516 90)
+			(at 51.054 64.516 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4677,7 +4677,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal"
-			(at 50.8 69.088 90)
+			(at 48.26 69.088 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4686,7 +4686,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 50.8 67.31 0)
+			(at 48.26 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4695,7 +4695,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 50.8 67.31 0)
+			(at 48.26 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4923,7 +4923,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 64.77 67.31 90)
+		(at 62.23 67.31 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4932,7 +4932,7 @@
 		(fields_autoplaced yes)
 		(uuid "44be77bf-4b62-43ee-a2d8-5cbce0788f39")
 		(property "Reference" "#PWR010"
-			(at 71.12 67.31 0)
+			(at 68.58 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4941,7 +4941,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 68.58 67.3099 90)
+			(at 66.04 67.3099 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4950,7 +4950,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 64.77 67.31 0)
+			(at 62.23 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4959,7 +4959,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 64.77 67.31 0)
+			(at 62.23 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4968,7 +4968,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 64.77 67.31 0)
+			(at 62.23 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5771,7 +5771,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 43.18 43.18 270)
+		(at 40.64 43.18 270)
 		(mirror x)
 		(unit 1)
 		(exclude_from_sim no)
@@ -5780,7 +5780,7 @@
 		(dnp no)
 		(uuid "97a61364-5015-454f-98eb-05f9c374c934")
 		(property "Reference" "R8"
-			(at 41.402 37.338 90)
+			(at 40.132 38.354 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5788,8 +5788,8 @@
 				(justify right)
 			)
 		)
-		(property "Value" "R8_UART_TX_10k"
-			(at 42.418 40.132 90)
+		(property "Value" "R8_UART_TX_470R"
+			(at 41.656 40.386 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5798,7 +5798,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal"
-			(at 43.18 44.958 90)
+			(at 40.64 44.958 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5807,7 +5807,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 43.18 43.18 0)
+			(at 40.64 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5816,7 +5816,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 43.18 43.18 0)
+			(at 40.64 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6460,7 +6460,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 43.18 50.8 270)
+		(at 40.64 50.8 270)
 		(mirror x)
 		(unit 1)
 		(exclude_from_sim no)
@@ -6469,7 +6469,7 @@
 		(dnp no)
 		(uuid "d3a23255-bcb9-4242-8bff-0edc878bebc2")
 		(property "Reference" "R3"
-			(at 44.704 45.212 90)
+			(at 41.91 45.72 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6478,7 +6478,7 @@
 			)
 		)
 		(property "Value" "R3_SPI_SCK_22-47R"
-			(at 47.244 47.752 90)
+			(at 44.704 47.752 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6487,7 +6487,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal"
-			(at 43.18 52.578 90)
+			(at 40.64 52.578 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6496,7 +6496,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 43.18 50.8 0)
+			(at 40.64 50.8 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6505,7 +6505,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 43.18 50.8 0)
+			(at 40.64 50.8 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6964,7 +6964,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 43.18 55.88 270)
+		(at 40.64 55.88 270)
 		(mirror x)
 		(unit 1)
 		(exclude_from_sim no)
@@ -6973,7 +6973,7 @@
 		(dnp no)
 		(uuid "e517520b-2066-4d72-86ad-8e6a62201dec")
 		(property "Reference" "R4"
-			(at 41.91 58.928 90)
+			(at 39.37 58.166 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6982,7 +6982,7 @@
 			)
 		)
 		(property "Value" "R4_SPI_MOSI_22-47R"
-			(at 26.416 61.214 90)
+			(at 23.876 59.944 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6991,7 +6991,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal"
-			(at 43.18 57.658 90)
+			(at 40.64 57.658 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7000,7 +7000,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 43.18 55.88 0)
+			(at 40.64 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7009,7 +7009,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 43.18 55.88 0)
+			(at 40.64 55.88 0)
 			(effects
 				(font
 					(size 1.27 1.27)

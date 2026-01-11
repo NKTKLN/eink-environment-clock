@@ -6331,7 +6331,7 @@
 				)
 			)
 		)
-		(property "Value" "R8_UART_TX_10k"
+		(property "Value" "R8_UART_TX_470R"
 			(at 3.81 2.37 0)
 			(layer "F.Fab")
 			(uuid "ef4679a6-1845-45ac-b822-c4c27c5b337c")
