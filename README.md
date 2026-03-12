@@ -5,13 +5,20 @@ It combines a low-power E-Ink screen with CO₂, temperature, humidity, and pres
 
 ## 🧩 PCB
 
+PCB design and assembly are illustrated with the following reference images:
+
+```bash
+images/
+├── assembled_board_image.png   # photo of the assembled and soldered board
+├── circuit_image.png           # circuit overview
+├── pcb_back_image.png          # PCB back side
+├── pcb_front_image.png         # PCB front side
+└── schematic_image.png         # schematic diagram
+```
+
 ### Circuit
 
 ![Circuit](images/circuit_image.png)
-
-### Schematic
-
-![Schematic](images/schematic_image.png)
 
 ### Assembled PCB
 ![Assembled PCB](images/assembled_board_image.png)
