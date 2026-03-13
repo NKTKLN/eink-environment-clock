@@ -23,6 +23,42 @@ images/
 ### Assembled PCB
 ![Assembled PCB](images/assembled_board_image.png)
 
+## 💾 Sketch
+
+The firmware for this project is located in:
+
+```bash
+sketch/
+└── eink-environment-clock.ino
+```
+
+This sketch is responsible for:
+
+* connecting and initializing all peripherals,
+* synchronizing time via Wi-Fi and NTP,
+* reading data from the environmental sensors,
+* updating the E-Ink display,
+* showing current time, CO₂ level, temperature, humidity, and pressure.
+
+## 📚 Libraries
+
+This project uses the following Arduino libraries:
+
+* **GxEPD2** — by Jean-Marc Zingg
+  Used to drive the E-Ink display.
+
+* **Adafruit GFX Library** — by Adafruit
+  Provides graphics primitives and text rendering for the display.
+
+* **Adafruit BME280 Library** — by Adafruit
+  Used to read temperature, humidity, and pressure from the BME280 sensor.
+
+* **RTClib** — by Adafruit
+  Used to communicate with the DS3231 real-time clock.
+
+* **MHZ19** — by WifWaf
+  Used to communicate with the MH-Z19 CO₂ sensor.
+
 ## ⚠️ Known Issues
 
 * Holes for the **MH-Z19** are too small.
