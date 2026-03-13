@@ -43,8 +43,8 @@ constexpr bool USE_12_HOUR_FORMAT = true;   // true = 12-hour, false = 24-hour
 constexpr bool USE_WIFI_TIME_SYNC = true;
 
 // Wi-Fi credentials
-constexpr char WIFI_SSID[]     = "WiDiSSID";
-constexpr char WIFI_PASSWORD[] = "WIFiPassword";
+constexpr char WIFI_SSID[] = "YourWiFiName";
+constexpr char WIFI_PASSWORD[] = "YourWiFiPassword";
 
 // NTP settings
 constexpr char NTP_SERVER[] = "pool.ntp.org";
@@ -54,16 +54,20 @@ constexpr char TIME_ZONE[]  = "MSK-3";
 constexpr uint8_t BME280_ADDRESS_PRIMARY   = 0x76;
 constexpr uint8_t BME280_ADDRESS_SECONDARY = 0x77;
 
+// MZH19b settings
+constexpr int CO2_ALERT_THRESHOLD_PPM = 1000;  // Blink the status LED when CO2 exceeds this level
+
 // =====================================================
 // Timing configuration
 // =====================================================
 
-constexpr uint32_t SENSOR_UPDATE_INTERVAL_MS   = 2000;     // Read sensors every 2 seconds
+constexpr uint32_t SENSOR_UPDATE_INTERVAL_MS   = 5000;     // Read sensors every 5 seconds
 constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS  = 2000;     // Update display every 2 seconds
 constexpr uint16_t DISPLAY_FULL_REFRESH_EVERY  = 600;      // Full refresh every N display updates
 constexpr uint32_t WIFI_TIME_SYNC_INTERVAL_MS  = 3600000;  // Sync time every 1 hour
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS     = 15000;    // Wi-Fi connection timeout
 constexpr uint32_t NTP_SYNC_TIMEOUT_MS         = 15000;    // NTP synchronization timeout
+constexpr uint32_t LED_BLINK_INTERVAL_MS       = 1000;     // LED blink interval when CO2 is above the alert threshold
 
 // =====================================================
 // Timing state
@@ -72,6 +76,7 @@ constexpr uint32_t NTP_SYNC_TIMEOUT_MS         = 15000;    // NTP synchronizatio
 uint32_t lastSensorUpdateMs  = 0;
 uint32_t lastDisplayUpdateMs = 0;
 uint32_t lastTimeSyncMs      = 0;
+uint32_t lastLedToggleMs     = 0;
 
 // =====================================================
 // Counters
@@ -89,6 +94,7 @@ bool isBme280Available  = false;
 bool isDs3231Available  = false;
 bool isMhz19Available   = false;
 bool isDisplayAvailable = false;
+bool isLedOn            = false; 
 
 // =====================================================
 // Global objects
@@ -288,12 +294,12 @@ bool syncRtcFromCompileTime() {
 
 bool initBme280() {
   if (bme.begin(BME280_ADDRESS_PRIMARY)) {
-    logInfo("BME280", "Initialized at 0x76.");
+    logInfo("BME280", "Initialized at primary address.");
     return true;
   }
 
   if (bme.begin(BME280_ADDRESS_SECONDARY)) {
-    logInfo("BME280", "Initialized at 0x77.");
+    logInfo("BME280", "Initialized at secondary address.");
     return true;
   }
 
@@ -312,13 +318,13 @@ bool initMhz19() {
 }
 
 bool initRtc() {
-  if (!rtc.begin()) {
-    logError("DS3231", "Initialization failed.");
-    return false;
+  if (rtc.begin()) {
+    logError("DS3231", "Initialized.");
+    return true;
   }
 
-  logInfo("DS3231", "Initialized.");
-  return true;
+  logInfo("DS3231", "Initialization failed.");
+  return false;
 }
 
 bool initEpd() {
@@ -332,6 +338,12 @@ bool initEpd() {
 
   logInfo("EPD", "Initialized");
   return true;
+}
+
+void initLed() {
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+  logInfo("Led", "Initialized");
 }
 
 // =====================================================
@@ -442,6 +454,25 @@ void printFullData() {
 }
 
 // =====================================================
+// LED handling
+// =====================================================
+
+void updateCo2Led() {
+  if (lastSensorData.co2Ppm > CO2_ALERT_THRESHOLD_PPM) {
+    const uint32_t nowMs = millis(); 
+
+    if (nowMs - lastLedToggleMs >= LED_BLINK_INTERVAL_MS) {
+      lastLedToggleMs = nowMs;
+      isLedOn = !isLedOn;
+      digitalWrite(LED_PIN, isLedOn ? HIGH : LOW);
+    }
+  } else {
+    isLedOn = false;
+    digitalWrite(LED_PIN, LOW);
+  }
+}
+
+// =====================================================
 // Display render
 // =====================================================
 
@@ -546,8 +577,8 @@ void drawDisplayContent(const char* timeText, const char* dateText) {
   display.setTextColor(GxEPD_BLACK);
   display.setFont();
 
-  drawCenteredText(timeText, 31, 5, 175);
-  drawCenteredText(dateText, 81, 2, 175);
+  drawCenteredText(timeText, 31, 5, 185);
+  drawCenteredText(dateText, 81, 2, 185);
 
   drawFloatMetric(190, 14, ICON_TEMPERATURE_LOW_16X16, lastSensorData.temperatureC, 1, "\xF7""C");
   drawFloatMetric(190, 40, ICON_DROPLET_16X16,         lastSensorData.humidityPct,  0, "%");
@@ -588,6 +619,7 @@ void setup() {
   isMhz19Available   = initMhz19();
   isDs3231Available  = initRtc();
   isDisplayAvailable = initEpd();
+  initLed();
 
   if (!syncRtcFromNtp()) {
     syncRtcFromCompileTime();
@@ -615,6 +647,8 @@ void loop() {
     lastDisplayUpdateMs = nowMs;
     drawDisplay();
   }
+
+  updateCo2Led();
 
   if (USE_WIFI_TIME_SYNC && isWifiConnected &&
       nowMs - lastTimeSyncMs >= WIFI_TIME_SYNC_INTERVAL_MS) {
