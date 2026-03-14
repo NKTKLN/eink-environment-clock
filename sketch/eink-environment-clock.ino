@@ -64,7 +64,7 @@ constexpr int CO2_ALERT_THRESHOLD_PPM = 1000;  // Blink the status LED when CO2 
 constexpr uint32_t SENSOR_UPDATE_INTERVAL_MS   = 5000;     // Read sensors every 5 seconds
 constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS  = 2000;     // Update display every 2 seconds
 constexpr uint16_t DISPLAY_FULL_REFRESH_EVERY  = 600;      // Full refresh every N display updates
-constexpr uint32_t WIFI_TIME_SYNC_INTERVAL_MS  = 3600000;  // Sync time every 1 hour
+constexpr uint32_t WIFI_TIME_SYNC_INTERVAL_MS  = 1800000;  // Sync time every 30 minutes
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS     = 15000;    // Wi-Fi connection timeout
 constexpr uint32_t NTP_SYNC_TIMEOUT_MS         = 15000;    // NTP synchronization timeout
 constexpr uint32_t LED_BLINK_INTERVAL_MS       = 1000;     // LED blink interval when CO2 is above the alert threshold
@@ -580,10 +580,10 @@ void drawDisplayContent(const char* timeText, const char* dateText) {
   drawCenteredText(timeText, 31, 5, 185);
   drawCenteredText(dateText, 81, 2, 185);
 
-  drawFloatMetric(190, 14, ICON_TEMPERATURE_LOW_16X16, lastSensorData.temperatureC, 1, "\xF7""C");
-  drawFloatMetric(190, 40, ICON_DROPLET_16X16,         lastSensorData.humidityPct,  0, "%");
-  drawFloatMetric(190, 66, ICON_GAUGE_16X16,           lastSensorData.pressureHpa,  0, "hPa");
-  drawFloatMetric(190, 92, ICON_SEEDLING_16X16,        lastSensorData.co2Ppm,       0, "ppm");
+  drawFloatMetric(190, 17, ICON_TEMPERATURE_LOW_16X16, lastSensorData.temperatureC, 1, "\xF7""C");
+  drawFloatMetric(190, 43, ICON_DROPLET_16X16,         lastSensorData.humidityPct,  0, "%");
+  drawFloatMetric(190, 69, ICON_GAUGE_16X16,           lastSensorData.pressureHpa,  0, "hPa");
+  drawFloatMetric(190, 95, ICON_SEEDLING_16X16,        lastSensorData.co2Ppm,       0, "ppm");
 }
 
 void drawDisplay() {
