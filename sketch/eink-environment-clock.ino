@@ -563,7 +563,7 @@ void drawFloatMetric(
 
     const int16_t cursorX = display.getCursorX();
     display.setTextSize(1);
-    display.setCursor(cursorX + 1, y + 6);
+    display.setCursor(cursorX + 1, y + 7);
     display.print(unit);
     return;
   }
