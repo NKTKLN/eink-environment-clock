@@ -37,7 +37,7 @@ constexpr uint8_t LED_PIN = 0;
 // =====================================================
 
 // Time format
-constexpr bool USE_12_HOUR_FORMAT = true;   // true = 12-hour, false = 24-hour
+constexpr bool USE_12_HOUR_FORMAT = true;
 
 // Time synchronization
 constexpr bool USE_WIFI_TIME_SYNC = true;
@@ -56,6 +56,9 @@ constexpr uint8_t BME280_ADDRESS_SECONDARY = 0x77;
 
 // MZH19b settings
 constexpr int CO2_ALERT_THRESHOLD_PPM = 1000;  // Blink the status LED when CO2 exceeds this level
+
+// Screen theme
+constexpr bool USE_DARK_THEME = true;
 
 // =====================================================
 // Timing configuration
@@ -473,6 +476,18 @@ void updateCo2Led() {
 }
 
 // =====================================================
+// Theme helpers
+// =====================================================
+
+uint16_t getThemeBackgroundColor() {
+  return USE_DARK_THEME ? GxEPD_BLACK : GxEPD_WHITE;
+}
+
+uint16_t getThemeForegroundColor() {
+  return USE_DARK_THEME ? GxEPD_WHITE : GxEPD_BLACK;
+}
+
+// =====================================================
 // Display render
 // =====================================================
 
@@ -554,7 +569,9 @@ void drawFloatMetric(
   int16_t valueX = 214,
   int16_t fallbackX = 205
 ) {
-  display.drawXBitmap(iconX, y, icon, 16, 16, GxEPD_BLACK);
+  const uint16_t fg = getThemeForegroundColor();
+
+  display.drawXBitmap(iconX, y, icon, 16, 16, fg);
 
   display.setTextSize(2);
   if (!isnan(value)) {
@@ -573,8 +590,11 @@ void drawFloatMetric(
 }
 
 void drawDisplayContent(const char* timeText, const char* dateText) {
-  display.fillScreen(GxEPD_WHITE);
-  display.setTextColor(GxEPD_BLACK);
+  const uint16_t bg = getThemeBackgroundColor();
+  const uint16_t fg = getThemeForegroundColor();
+
+  display.fillScreen(bg);
+  display.setTextColor(fg);
   display.setFont();
 
   drawCenteredText(timeText, 31, 5, 185);
