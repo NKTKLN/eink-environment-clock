@@ -11,11 +11,11 @@ PCB design and assembly are illustrated with the following reference images:
 
 ```bash
 images/
-├── assembled_board_image.png   # photo of the assembled and soldered board
-├── circuit_image.png           # circuit overview
-├── pcb_back_image.png          # PCB back side
-├── pcb_front_image.png         # PCB front side
-└── schematic_image.png         # schematic diagram
+├── assembled_board_image.png
+├── circuit_image.png
+├── pcb_back_image.png
+├── pcb_front_image.png
+└── schematic_image.png
 ```
 
 ### Circuit
