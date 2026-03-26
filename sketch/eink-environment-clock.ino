@@ -2,6 +2,7 @@
 #include <GxEPD2_BW.h>
 #include <Adafruit_GFX.h>
 
+#include <math.h>
 #include <WiFi.h>
 #include <Wire.h>
 #include <Adafruit_BME280.h>
@@ -53,6 +54,7 @@ constexpr char TIME_ZONE[]  = "MSK-3";
 // BME280 settings
 constexpr uint8_t BME280_ADDRESS_PRIMARY   = 0x76;
 constexpr uint8_t BME280_ADDRESS_SECONDARY = 0x77;
+constexpr float BME280_TEMP_OFFSET_C = 0.0f;
 
 // MZH19b settings
 constexpr int CO2_ALERT_THRESHOLD_PPM = 1000;  // Blink the status LED when CO2 exceeds this level
@@ -66,7 +68,7 @@ constexpr bool USE_DARK_THEME = true;
 
 constexpr uint32_t SENSOR_UPDATE_INTERVAL_MS   = 5000;     // Read sensors every 5 seconds
 constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS  = 2000;     // Update display every 2 seconds
-constexpr uint16_t DISPLAY_FULL_REFRESH_EVERY  = 600;      // Full refresh every N display updates
+constexpr uint16_t DISPLAY_FULL_REFRESH_EVERY  = 720;      // Full refresh every N display updates
 constexpr uint32_t WIFI_TIME_SYNC_INTERVAL_MS  = 1800000;  // Sync time every 30 minutes
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS     = 15000;    // Wi-Fi connection timeout
 constexpr uint32_t NTP_SYNC_TIMEOUT_MS         = 15000;    // NTP synchronization timeout
@@ -91,13 +93,15 @@ uint16_t updatesSinceFullRefresh = 0;
 // Runtime flags
 // =====================================================
 
-bool isWifiConnected    = false;
-bool isFirstDisplayDraw = true;
-bool isBme280Available  = false;
-bool isDs3231Available  = false;
-bool isMhz19Available   = false;
-bool isDisplayAvailable = false;
-bool isLedOn            = false; 
+bool isWifiConnected     = false;
+bool isFirstDisplayDraw  = true;
+bool isBme280Available   = false;
+bool isDs3231Available   = false;
+bool isMhz19Available    = false;
+bool isDisplayAvailable  = false;
+bool isLedOn             = false;
+bool isSensorDataChanged = false; 
+bool isTimeChanged       = false;
 
 // =====================================================
 // Global objects
@@ -115,7 +119,7 @@ MHZ19 mhz19;
 HardwareSerial mhzSerial(1);
 
 // =====================================================
-// Sensor data
+// Sensor & time data
 // =====================================================
 
 struct SensorData {
@@ -126,6 +130,9 @@ struct SensorData {
 };
 
 SensorData lastSensorData;
+SensorData previousSensorData;
+
+DateTime lastDisplayRtcTime;
 
 // =====================================================
 // Bitmap icons
@@ -158,6 +165,31 @@ const unsigned char ICON_TEMPERATURE_LOW_16X16[] PROGMEM = {
   0xf0, 0x01, 0xf0, 0x01, 0xb0, 0x01, 0xb8, 0x03, 0x18, 0x03, 0x18, 0x03,
   0xf8, 0x03, 0xf0, 0x01, 0x00, 0x00, 0x00, 0x00
 };
+
+// =====================================================
+// Data helpers
+// =====================================================
+
+bool nearlyEqual(float a, float b, float eps = 0.05f) {
+  if (isnan(a) && isnan(b)) return true;
+  if (isnan(a) || isnan(b)) return false;
+  return fabs(a - b) <= eps;
+}
+
+bool isSimilarSensorData(const SensorData& a, const SensorData& b) {
+  return nearlyEqual(a.temperatureC, b.temperatureC, 0.2f) &&
+         nearlyEqual(a.humidityPct,  b.humidityPct,  2.0f) &&
+         nearlyEqual(a.pressureHpa,  b.pressureHpa,  5.0f) &&
+         abs(a.co2Ppm - b.co2Ppm) <= 50;
+}
+
+bool isTimeChangedIgnoringSeconds(const DateTime& a, const DateTime& b) {
+  return a.year() != b.year() ||
+         a.month() != b.month() ||
+         a.day() != b.day() ||
+         a.hour() != b.hour() ||
+         a.minute() != b.minute();
+}
 
 // =====================================================
 // Logging
@@ -296,13 +328,16 @@ bool syncRtcFromCompileTime() {
 // =====================================================
 
 bool initBme280() {
-  if (bme.begin(BME280_ADDRESS_PRIMARY)) {
-    logInfo("BME280", "Initialized at primary address.");
-    return true;
-  }
+  if (bme.begin(BME280_ADDRESS_PRIMARY) || bme.begin(BME280_ADDRESS_SECONDARY)) {
+    bme.setSampling(
+      Adafruit_BME280::MODE_FORCED,
+      Adafruit_BME280::SAMPLING_X1,
+      Adafruit_BME280::SAMPLING_X1,
+      Adafruit_BME280::SAMPLING_X1,
+      Adafruit_BME280::FILTER_OFF
+    );
 
-  if (bme.begin(BME280_ADDRESS_SECONDARY)) {
-    logInfo("BME280", "Initialized at secondary address.");
+    logInfo("BME280", "Initialized.");
     return true;
   }
 
@@ -322,11 +357,11 @@ bool initMhz19() {
 
 bool initRtc() {
   if (rtc.begin()) {
-    logError("DS3231", "Initialized.");
+    logInfo("DS3231", "Initialized.");
     return true;
   }
-
-  logInfo("DS3231", "Initialization failed.");
+  
+  logError("DS3231", "Initialization failed.");
   return false;
 }
 
@@ -339,14 +374,14 @@ bool initEpd() {
   display.init(115200);
   display.setRotation(3);
 
-  logInfo("EPD", "Initialized");
+  logInfo("EPD", "Initialized.");
   return true;
 }
 
 void initLed() {
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
-  logInfo("Led", "Initialized");
+  logInfo("Led", "Initialized.");
 }
 
 // =====================================================
@@ -354,30 +389,43 @@ void initLed() {
 // =====================================================
 
 void readSensors() {
+  SensorData newData = lastSensorData;
+  isSensorDataChanged = false;
+
   if (isBme280Available) {
-    const float temperatureC = bme.readTemperature();
+    bme.takeForcedMeasurement();
+    
+    const float temperatureC = bme.readTemperature() + BME280_TEMP_OFFSET_C;
     const float humidityPct  = bme.readHumidity();
     const float pressureHpa  = bme.readPressure() / 100.0F;
 
-    if (!isnan(temperatureC)) {
-      lastSensorData.temperatureC = temperatureC;
-    }
-
-    if (!isnan(humidityPct)) {
-      lastSensorData.humidityPct = humidityPct;
-    }
-
-    if (!isnan(pressureHpa)) {
-      lastSensorData.pressureHpa = pressureHpa;
-    }
+    if (!isnan(temperatureC)) newData.temperatureC = temperatureC;
+    if (!isnan(humidityPct)) newData.humidityPct = humidityPct;
+    if (!isnan(pressureHpa)) newData.pressureHpa = pressureHpa;
   }
 
   if (isMhz19Available) {
     const int co2Ppm = mhz19.getCO2();
 
-    if (co2Ppm > 0 && co2Ppm <= 10000) {
-      lastSensorData.co2Ppm = co2Ppm;
-    }
+    if (co2Ppm > 0 && co2Ppm <= 10000) newData.co2Ppm = co2Ppm;
+  }
+
+  if (!isSimilarSensorData(lastSensorData, newData)) {
+    previousSensorData = lastSensorData;
+    lastSensorData = newData;
+    isSensorDataChanged = true;
+  }
+}
+
+void readCurrentTimeForDisplay() {
+  isTimeChanged = false;
+
+  if (!isDs3231Available) return;
+
+  const DateTime currentTime = rtc.now();
+  if (isTimeChangedIgnoringSeconds(currentTime, lastDisplayRtcTime)) {
+    lastDisplayRtcTime = currentTime;
+    isTimeChanged = true;
   }
 }
 
@@ -502,14 +550,13 @@ void formatDisplayDate(char* buffer, size_t size) {
     return;
   }
 
-  const DateTime now = rtc.now();
   snprintf(
     buffer,
     size,
     "%u %s %u",
-    now.day(),
-    MONTHS[now.month() - 1],
-    now.year()
+    lastDisplayRtcTime.day(),
+    MONTHS[lastDisplayRtcTime.month() - 1],
+    lastDisplayRtcTime.year()
   );
 }
 
@@ -519,8 +566,7 @@ void formatDisplayTime(char* buffer, size_t size) {
     return;
   }
 
-  const DateTime now = rtc.now();
-  uint8_t hour = now.hour();
+  uint8_t hour = lastDisplayRtcTime.hour();
 
   if (USE_12_HOUR_FORMAT) {
     hour %= 12;
@@ -529,7 +575,7 @@ void formatDisplayTime(char* buffer, size_t size) {
     }
   }
 
-  snprintf(buffer, size, "%02u:%02u", hour, now.minute());
+  snprintf(buffer, size, "%02u:%02u", hour, lastDisplayRtcTime.minute());
 }
 
 bool shouldDoFullRefresh() {
@@ -607,6 +653,12 @@ void drawDisplayContent(const char* timeText, const char* dateText) {
 }
 
 void drawDisplay() {
+  readCurrentTimeForDisplay();
+  if (!isFirstDisplayDraw && !isSensorDataChanged && !isTimeChanged) {
+    logInfo("EPD", "Data unchanged, skipping update.");
+    return;
+  }
+
   char dateBuffer[20];
   char timeBuffer[16];
 
