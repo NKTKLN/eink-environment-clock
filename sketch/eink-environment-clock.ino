@@ -54,21 +54,22 @@ constexpr char TIME_ZONE[]  = "MSK-3";
 // BME280 settings
 constexpr uint8_t BME280_ADDRESS_PRIMARY   = 0x76;
 constexpr uint8_t BME280_ADDRESS_SECONDARY = 0x77;
-constexpr float BME280_TEMP_OFFSET_C = 0.0f;
+constexpr float BME280_TEMP_OFFSET_C = -2.3f;
 
 // MZH19b settings
 constexpr int CO2_ALERT_THRESHOLD_PPM = 1000;  // Blink the status LED when CO2 exceeds this level
 
 // Screen theme
 constexpr bool USE_DARK_THEME = true;
+constexpr bool SKIP_UPDATE_IF_DATA_UNCHANGED = false;
 
 // =====================================================
 // Timing configuration
 // =====================================================
 
 constexpr uint32_t SENSOR_UPDATE_INTERVAL_MS   = 5000;     // Read sensors every 5 seconds
-constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS  = 2000;     // Update display every 2 seconds
-constexpr uint16_t DISPLAY_FULL_REFRESH_EVERY  = 720;      // Full refresh every N display updates
+constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS  = 2500;     // Update display every 2.5 seconds
+constexpr uint16_t DISPLAY_FULL_REFRESH_EVERY  = 1440;     // Full refresh every N display updates
 constexpr uint32_t WIFI_TIME_SYNC_INTERVAL_MS  = 1800000;  // Sync time every 30 minutes
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS     = 15000;    // Wi-Fi connection timeout
 constexpr uint32_t NTP_SYNC_TIMEOUT_MS         = 15000;    // NTP synchronization timeout
@@ -654,7 +655,7 @@ void drawDisplayContent(const char* timeText, const char* dateText) {
 
 void drawDisplay() {
   readCurrentTimeForDisplay();
-  if (!isFirstDisplayDraw && !isSensorDataChanged && !isTimeChanged) {
+  if (SKIP_UPDATE_IF_DATA_UNCHANGED && !isFirstDisplayDraw && !isSensorDataChanged && !isTimeChanged) {
     logInfo("EPD", "Data unchanged, skipping update.");
     return;
   }
