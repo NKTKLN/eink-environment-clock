@@ -59,17 +59,17 @@ constexpr float BME280_TEMP_OFFSET_C = -2.3f;
 // MZH19b settings
 constexpr int CO2_ALERT_THRESHOLD_PPM = 1000;  // Blink the status LED when CO2 exceeds this level
 
-// Screen theme
-constexpr bool USE_DARK_THEME = true;
+// Screen settings
+constexpr bool USE_DARK_THEME = false; // true - not recommended
 constexpr bool SKIP_UPDATE_IF_DATA_UNCHANGED = false;
 
 // =====================================================
 // Timing configuration
 // =====================================================
 
-constexpr uint32_t SENSOR_UPDATE_INTERVAL_MS   = 5000;     // Read sensors every 5 seconds
-constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS  = 2500;     // Update display every 2.5 seconds
-constexpr uint16_t DISPLAY_FULL_REFRESH_EVERY  = 1440;     // Full refresh every N display updates
+constexpr uint32_t SENSOR_UPDATE_INTERVAL_MS   = 30000;    // Read sensors every 30 seconds
+constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS  = 2000;     // Update display every 2 seconds
+constexpr uint16_t DISPLAY_FULL_REFRESH_EVERY  = 600;      // Full refresh every N display updates
 constexpr uint32_t WIFI_TIME_SYNC_INTERVAL_MS  = 1800000;  // Sync time every 30 minutes
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS     = 15000;    // Wi-Fi connection timeout
 constexpr uint32_t NTP_SYNC_TIMEOUT_MS         = 15000;    // NTP synchronization timeout
@@ -94,15 +94,15 @@ uint16_t updatesSinceFullRefresh = 0;
 // Runtime flags
 // =====================================================
 
-bool isWifiConnected     = false;
-bool isFirstDisplayDraw  = true;
-bool isBme280Available   = false;
-bool isDs3231Available   = false;
-bool isMhz19Available    = false;
-bool isDisplayAvailable  = false;
-bool isLedOn             = false;
-bool isSensorDataChanged = false; 
-bool isTimeChanged       = false;
+bool wifiConnected     = false;
+bool firstDisplayDraw  = true;
+bool bme280Available   = false;
+bool ds3231Available   = false;
+bool mhz19Available    = false;
+bool displayAvailable  = false;
+bool ledOn             = false;
+bool sensorDataChanged = false;
+bool timeChanged       = false;
 
 // =====================================================
 // Global objects
@@ -131,9 +131,7 @@ struct SensorData {
 };
 
 SensorData lastSensorData;
-SensorData previousSensorData;
-
-DateTime lastDisplayRtcTime;
+DateTime lastRtcTime;
 
 // =====================================================
 // Bitmap icons
@@ -168,6 +166,19 @@ const unsigned char ICON_TEMPERATURE_LOW_16X16[] PROGMEM = {
 };
 
 // =====================================================
+// Structures
+// =====================================================
+
+struct BoxLayout {
+  int16_t cursorX;
+  int16_t cursorY;
+  int16_t boxX;
+  int16_t boxY;
+  uint16_t boxW;
+  uint16_t boxH;
+};
+
+// =====================================================
 // Data helpers
 // =====================================================
 
@@ -177,17 +188,17 @@ bool nearlyEqual(float a, float b, float eps = 0.05f) {
   return fabs(a - b) <= eps;
 }
 
-bool isSimilarSensorData(const SensorData& a, const SensorData& b) {
+bool isSensorDataSimilar(const SensorData& a, const SensorData& b) {
   return nearlyEqual(a.temperatureC, b.temperatureC, 0.2f) &&
          nearlyEqual(a.humidityPct,  b.humidityPct,  2.0f) &&
          nearlyEqual(a.pressureHpa,  b.pressureHpa,  5.0f) &&
          abs(a.co2Ppm - b.co2Ppm) <= 50;
 }
 
-bool isTimeChangedIgnoringSeconds(const DateTime& a, const DateTime& b) {
+bool hasTimeChanged(const DateTime& a, const DateTime& b) {
   return a.year() != b.year() ||
          a.month() != b.month() ||
-         a.day() != b.day() ||
+         a.day() != b.day() || 
          a.hour() != b.hour() ||
          a.minute() != b.minute();
 }
@@ -259,7 +270,7 @@ bool connectToWifi() {
 // =====================================================
 
 bool syncTimeFromNtp() {
-  if (!isWifiConnected) {
+  if (!wifiConnected) {
     logError("NTP", "Wi-Fi is not connected.");
     return false;
   }
@@ -285,7 +296,7 @@ bool syncTimeFromNtp() {
 }
 
 bool syncRtcFromNtp() {
-  if (!isDs3231Available) {
+  if (!ds3231Available) {
     logError("DS3231", "RTC is not available.");
     return false;
   }
@@ -314,7 +325,7 @@ bool syncRtcFromNtp() {
 }
 
 bool syncRtcFromCompileTime() {
-  if (!isDs3231Available) {
+  if (!ds3231Available) {
     logError("DS3231", "RTC is not available.");
     return false;
   }
@@ -391,9 +402,8 @@ void initLed() {
 
 void readSensors() {
   SensorData newData = lastSensorData;
-  isSensorDataChanged = false;
 
-  if (isBme280Available) {
+  if (bme280Available) {
     bme.takeForcedMeasurement();
     
     const float temperatureC = bme.readTemperature() + BME280_TEMP_OFFSET_C;
@@ -405,63 +415,31 @@ void readSensors() {
     if (!isnan(pressureHpa)) newData.pressureHpa = pressureHpa;
   }
 
-  if (isMhz19Available) {
+  if (mhz19Available) {
     const int co2Ppm = mhz19.getCO2();
 
     if (co2Ppm > 0 && co2Ppm <= 10000) newData.co2Ppm = co2Ppm;
   }
 
-  if (!isSimilarSensorData(lastSensorData, newData)) {
-    previousSensorData = lastSensorData;
-    lastSensorData = newData;
-    isSensorDataChanged = true;
-  }
+  sensorDataChanged = !isSensorDataSimilar(lastSensorData, newData);
+  lastSensorData = newData;
 }
 
-void readCurrentTimeForDisplay() {
-  isTimeChanged = false;
-
-  if (!isDs3231Available) return;
-
-  const DateTime currentTime = rtc.now();
-  if (isTimeChangedIgnoringSeconds(currentTime, lastDisplayRtcTime)) {
-    lastDisplayRtcTime = currentTime;
-    isTimeChanged = true;
-  }
-}
-
-void printCurrentTime() {
-  if (!isDs3231Available) {
-    return;
-  }
+void readCurrentTime() {
+  if (!ds3231Available) return;
 
   const DateTime now = rtc.now();
 
-  if (USE_12_HOUR_FORMAT) {
-    uint8_t hour = now.hour();
-    const char* suffix = (hour >= 12) ? "PM" : "AM";
+  timeChanged = hasTimeChanged(now, lastRtcTime);
+  lastRtcTime = now;
+}
 
-    hour %= 12;
-    if (hour == 0) {
-      hour = 12;
-    }
+// =====================================================
+// Serial data log
+// =====================================================
 
-    char buffer[32];
-    snprintf(
-      buffer,
-      sizeof(buffer),
-      "%02u.%02u.%04u %02u:%02u:%02u %s",
-      now.day(),
-      now.month(),
-      now.year(),
-      hour,
-      now.minute(),
-      now.second(),
-      suffix
-    );
-
-    Serial.print("[INFO] [RTC] ");
-    Serial.println(buffer);
+void printCurrentTime() {
+  if (!ds3231Available) {
     return;
   }
 
@@ -470,12 +448,12 @@ void printCurrentTime() {
     buffer,
     sizeof(buffer),
     "%02u.%02u.%04u %02u:%02u:%02u",
-    now.day(),
-    now.month(),
-    now.year(),
-    now.hour(),
-    now.minute(),
-    now.second()
+    lastRtcTime.day(),
+    lastRtcTime.month(),
+    lastRtcTime.year(),
+    lastRtcTime.hour(),
+    lastRtcTime.minute(),
+    lastRtcTime.second()
   );
 
   Serial.print("[INFO] [RTC] ");
@@ -483,7 +461,7 @@ void printCurrentTime() {
 }
 
 void printSensorData() {
-  if (isBme280Available) {
+  if (bme280Available) {
     Serial.print("[INFO] [BME280] T=");
     Serial.print(lastSensorData.temperatureC, 1);
     Serial.print(" C, H=");
@@ -493,7 +471,7 @@ void printSensorData() {
     Serial.println(" hPa");
   }
 
-  if (isMhz19Available && lastSensorData.co2Ppm > 0) {
+  if (mhz19Available && lastSensorData.co2Ppm > 0) {
     Serial.print("[INFO] [MH-Z19] CO2=");
     Serial.print(lastSensorData.co2Ppm);
     Serial.println(" ppm");
@@ -515,17 +493,17 @@ void updateCo2Led() {
 
     if (nowMs - lastLedToggleMs >= LED_BLINK_INTERVAL_MS) {
       lastLedToggleMs = nowMs;
-      isLedOn = !isLedOn;
-      digitalWrite(LED_PIN, isLedOn ? HIGH : LOW);
+      ledOn = !ledOn;
+      digitalWrite(LED_PIN, ledOn ? HIGH : LOW);
     }
   } else {
-    isLedOn = false;
+    ledOn = false;
     digitalWrite(LED_PIN, LOW);
   }
 }
 
 // =====================================================
-// Theme helpers
+// Display helpers
 // =====================================================
 
 uint16_t getThemeBackgroundColor() {
@@ -536,17 +514,13 @@ uint16_t getThemeForegroundColor() {
   return USE_DARK_THEME ? GxEPD_WHITE : GxEPD_BLACK;
 }
 
-// =====================================================
-// Display render
-// =====================================================
-
 void formatDisplayDate(char* buffer, size_t size) {
   static const char* MONTHS[] = {
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
   };
 
-  if (!isDs3231Available) {
+  if (!ds3231Available) {
     snprintf(buffer, size, "--.--.----");
     return;
   }
@@ -555,19 +529,19 @@ void formatDisplayDate(char* buffer, size_t size) {
     buffer,
     size,
     "%u %s %u",
-    lastDisplayRtcTime.day(),
-    MONTHS[lastDisplayRtcTime.month() - 1],
-    lastDisplayRtcTime.year()
+    lastRtcTime.day(),
+    MONTHS[lastRtcTime.month() - 1],
+    lastRtcTime.year()
   );
 }
 
 void formatDisplayTime(char* buffer, size_t size) {
-  if (!isDs3231Available) {
+  if (!ds3231Available) {
     snprintf(buffer, size, "--:--");
     return;
   }
 
-  uint8_t hour = lastDisplayRtcTime.hour();
+  uint8_t hour = lastRtcTime.hour();
 
   if (USE_12_HOUR_FORMAT) {
     hour %= 12;
@@ -576,105 +550,134 @@ void formatDisplayTime(char* buffer, size_t size) {
     }
   }
 
-  snprintf(buffer, size, "%02u:%02u", hour, lastDisplayRtcTime.minute());
+  snprintf(buffer, size, "%02u:%02u", hour, lastRtcTime.minute());
 }
 
-bool shouldDoFullRefresh() {
-  return isFirstDisplayDraw || (updatesSinceFullRefresh >= DISPLAY_FULL_REFRESH_EVERY);
-}
+// =====================================================
+// Display render
+// =====================================================
 
-void beginDisplayUpdate(bool doFullRefresh) {
-  if (doFullRefresh) {
-    display.setFullWindow();
-    updatesSinceFullRefresh = 0;
-    return;
-  }
+void drawCenteredText(const char* text, int16_t baselineY, uint8_t textSize, uint16_t areaWidth) {
+  display.setFont();
+  display.setTextSize(textSize);
 
-  display.setPartialWindow(0, 0, display.width(), display.height());
-  ++updatesSinceFullRefresh;
-}
-
-void drawCenteredText(const char* text, int16_t y, uint8_t textSize, uint16_t areaWidth) {
   int16_t x1, y1;
   uint16_t w, h;
-
-  display.setTextSize(textSize);
   display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
 
-  const int16_t x = (areaWidth - w) / 2;
+  int16_t x = (areaWidth - (int16_t)w) / 2 - x1;
+  int16_t y = baselineY;
+
+  display.getTextBounds(text, x, y, &x1, &y1, &w, &h);
+
   display.setCursor(x, y);
   display.print(text);
 }
 
-void drawFloatMetric(
-  int16_t iconX,
-  int16_t y,
-  const unsigned char* icon,
-  float value,
-  uint8_t decimals,
-  const char* unit,
-  int16_t valueX = 214,
-  int16_t fallbackX = 205
-) {
+void drawFloatMetric(int16_t iconX, int16_t topY, const unsigned char* icon, float value, uint8_t decimals, const char* unit) {
   const uint16_t fg = getThemeForegroundColor();
 
-  display.drawXBitmap(iconX, y, icon, 16, 16, fg);
-
-  display.setTextSize(2);
-  if (!isnan(value)) {
-    display.setCursor(valueX, y);
-    display.print(value, decimals);
-
-    const int16_t cursorX = display.getCursorX();
-    display.setTextSize(1);
-    display.setCursor(cursorX + 1, y + 7);
-    display.print(unit);
-    return;
+  char valueText[16];
+  if (isnan(value)) {
+    snprintf(valueText, sizeof(valueText), "---");
+  } else {
+    snprintf(valueText, sizeof(valueText), "%.*f", decimals, value);
   }
 
-  display.setCursor(fallbackX, y);
-  display.print("---");
+  display.drawXBitmap(iconX, topY, icon, 16, 16, fg);
+
+  display.setTextSize(2);
+  display.setCursor(iconX + 24, topY);
+  display.print(valueText);
+
+  if (unit != nullptr && unit[0] != '\0') {
+    const int16_t cursorX = display.getCursorX();
+    display.setTextSize(1);
+    display.setCursor(cursorX + 1, topY + 6);
+    display.print(unit);
+  }
 }
 
-void drawDisplayContent(const char* timeText, const char* dateText) {
+void drawPartialRegion(int16_t x, int16_t y, int16_t w, int16_t h, void (*drawContent)()) {
   const uint16_t bg = getThemeBackgroundColor();
   const uint16_t fg = getThemeForegroundColor();
 
-  display.fillScreen(bg);
-  display.setTextColor(fg);
-  display.setFont();
-
-  drawCenteredText(timeText, 31, 5, 185);
-  drawCenteredText(dateText, 81, 2, 185);
-
-  drawFloatMetric(190, 17, ICON_TEMPERATURE_LOW_16X16, lastSensorData.temperatureC, 1, "\xF7""C");
-  drawFloatMetric(190, 43, ICON_DROPLET_16X16,         lastSensorData.humidityPct,  0, "%");
-  drawFloatMetric(190, 69, ICON_GAUGE_16X16,           lastSensorData.pressureHpa,  0, "hPa");
-  drawFloatMetric(190, 95, ICON_SEEDLING_16X16,        lastSensorData.co2Ppm,       0, "ppm");
+  display.setPartialWindow(x, y, w, h);
+  display.firstPage();
+  do {
+    display.fillRect(x, y, w, h, bg);
+    display.setTextColor(fg);
+    display.setFont();
+    drawContent();
+  } while (display.nextPage());
 }
 
-void drawDisplay() {
-  readCurrentTimeForDisplay();
-  if (SKIP_UPDATE_IF_DATA_UNCHANGED && !isFirstDisplayDraw && !isSensorDataChanged && !isTimeChanged) {
-    logInfo("EPD", "Data unchanged, skipping update.");
-    return;
-  }
-
+// =====================================================
+// Display UI
+// =====================================================
+void drawTimeRegion() {
   char dateBuffer[20];
   char timeBuffer[16];
 
   formatDisplayDate(dateBuffer, sizeof(dateBuffer));
   formatDisplayTime(timeBuffer, sizeof(timeBuffer));
 
-  const bool doFullRefresh = shouldDoFullRefresh();
-  beginDisplayUpdate(doFullRefresh);
+  drawCenteredText(timeBuffer, 31, 5, 185);
+  drawCenteredText(dateBuffer, 81, 2, 185);
+}
 
+void drawSensorRegion() {
+  drawFloatMetric(190, 17, ICON_TEMPERATURE_LOW_16X16, lastSensorData.temperatureC, 1, "\xF7""C");
+  drawFloatMetric(190, 43, ICON_DROPLET_16X16,         lastSensorData.humidityPct,  0, "%");
+  drawFloatMetric(190, 69, ICON_GAUGE_16X16,           lastSensorData.pressureHpa,  0, "hPa");
+  drawFloatMetric(190, 95, ICON_SEEDLING_16X16,        lastSensorData.co2Ppm,       0, "ppm");
+}
+
+void drawFullScreen() {
+  const uint16_t bg = getThemeBackgroundColor();
+  const uint16_t fg = getThemeForegroundColor();
+
+  display.setFullWindow();
   display.firstPage();
   do {
-    drawDisplayContent(timeBuffer, dateBuffer);
+    display.fillScreen(bg);
+    display.setTextColor(fg);
+    display.setFont();
+    
+    drawTimeRegion();
+    drawSensorRegion();
   } while (display.nextPage());
+}
 
-  isFirstDisplayDraw = false;
+void drawPartialScreen() {
+  bool didPartial = false;
+
+  if (timeChanged || !SKIP_UPDATE_IF_DATA_UNCHANGED) {
+    drawPartialRegion(13, 24, 158, 80, drawTimeRegion);
+    timeChanged = false;
+    didPartial = true;
+  }
+
+  if (sensorDataChanged || !SKIP_UPDATE_IF_DATA_UNCHANGED) {
+    drawPartialRegion(186, 8, 110, 112, drawSensorRegion);
+    sensorDataChanged = false;
+    didPartial = true;
+  }
+
+  if (didPartial) ++updatesSinceFullRefresh;
+}
+
+void drawDisplay() {
+  if (firstDisplayDraw || (updatesSinceFullRefresh >= DISPLAY_FULL_REFRESH_EVERY)) {
+    drawFullScreen();
+    updatesSinceFullRefresh = 0;
+    timeChanged = false;
+    sensorDataChanged = false;
+    firstDisplayDraw = false;
+  }
+  
+  drawPartialScreen();
+  firstDisplayDraw = false;
 }
 
 // =====================================================
@@ -687,11 +690,11 @@ void setup() {
 
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
 
-  isWifiConnected    = connectToWifi();
-  isBme280Available  = initBme280();
-  isMhz19Available   = initMhz19();
-  isDs3231Available  = initRtc();
-  isDisplayAvailable = initEpd();
+  wifiConnected    = connectToWifi();
+  bme280Available  = initBme280();
+  mhz19Available   = initMhz19();
+  ds3231Available  = initRtc();
+  displayAvailable = initEpd();
   initLed();
 
   if (!syncRtcFromNtp()) {
@@ -706,24 +709,26 @@ void setup() {
 void loop() {
   const uint32_t nowMs = millis();
 
-  if (USE_WIFI_TIME_SYNC && !isWifiConnected) {
-    isWifiConnected = connectToWifi();
+  if (USE_WIFI_TIME_SYNC && !wifiConnected) {
+    wifiConnected = connectToWifi();
   }
+
+  readCurrentTime();
 
   if (nowMs - lastSensorUpdateMs >= SENSOR_UPDATE_INTERVAL_MS) {
     lastSensorUpdateMs = nowMs;
     readSensors();
-    printFullData();
   }
 
   if (nowMs - lastDisplayUpdateMs >= DISPLAY_UPDATE_INTERVAL_MS) {
     lastDisplayUpdateMs = nowMs;
     drawDisplay();
+    printFullData();
   }
 
   updateCo2Led();
 
-  if (USE_WIFI_TIME_SYNC && isWifiConnected &&
+  if (USE_WIFI_TIME_SYNC && wifiConnected &&
       nowMs - lastTimeSyncMs >= WIFI_TIME_SYNC_INTERVAL_MS) {
     lastTimeSyncMs = nowMs;
     syncRtcFromNtp();
