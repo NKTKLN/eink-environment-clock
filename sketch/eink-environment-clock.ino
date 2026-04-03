@@ -61,19 +61,20 @@ constexpr int CO2_ALERT_THRESHOLD_PPM = 1000;  // Blink the status LED when CO2 
 
 // Screen settings
 constexpr bool USE_DARK_THEME = false; // true - not recommended
-constexpr bool SKIP_UPDATE_IF_DATA_UNCHANGED = false;
+constexpr bool SKIP_UPDATE_IF_DATA_UNCHANGED = true;
 
 // =====================================================
 // Timing configuration
 // =====================================================
 
-constexpr uint32_t SENSOR_UPDATE_INTERVAL_MS   = 30000;    // Read sensors every 30 seconds
-constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS  = 2000;     // Update display every 2 seconds
-constexpr uint16_t DISPLAY_FULL_REFRESH_EVERY  = 600;      // Full refresh every N display updates
-constexpr uint32_t WIFI_TIME_SYNC_INTERVAL_MS  = 1800000;  // Sync time every 30 minutes
-constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS     = 15000;    // Wi-Fi connection timeout
-constexpr uint32_t NTP_SYNC_TIMEOUT_MS         = 15000;    // NTP synchronization timeout
-constexpr uint32_t LED_BLINK_INTERVAL_MS       = 1000;     // LED blink interval when CO2 is above the alert threshold
+constexpr uint32_t SENSOR_UPDATE_INTERVAL_MS           = 30000;    // Read sensors every 30 seconds
+constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS          = 1000;     // Update display every second
+constexpr uint16_t DISPLAY_FULL_REFRESH_EVERY          = 300;      // Full refresh every N display updates
+constexpr uint8_t  DISPLAY_EXTRA_REDRAWS_AFTER_PARTIAL = 5;        // Number of additional full redraws after a partial display update 
+constexpr uint32_t WIFI_TIME_SYNC_INTERVAL_MS          = 1800000;  // Sync time every 30 minutes
+constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS             = 15000;    // Wi-Fi connection timeout
+constexpr uint32_t NTP_SYNC_TIMEOUT_MS                 = 15000;    // NTP synchronization timeout
+constexpr uint32_t LED_BLINK_INTERVAL_MS               = 1000;     // LED blink interval when CO2 is above the alert threshold
 
 // =====================================================
 // Timing state
@@ -89,6 +90,8 @@ uint32_t lastLedToggleMs     = 0;
 // =====================================================
 
 uint16_t updatesSinceFullRefresh = 0;
+uint16_t displayTimeUpdateCount  = 0;
+uint16_t displayDataUpdateCount  = 0;
 
 // =====================================================
 // Runtime flags
@@ -421,8 +424,10 @@ void readSensors() {
     if (co2Ppm > 0 && co2Ppm <= 10000) newData.co2Ppm = co2Ppm;
   }
 
-  sensorDataChanged = !isSensorDataSimilar(lastSensorData, newData);
-  lastSensorData = newData;
+  if (!isSensorDataSimilar(lastSensorData, newData)) {
+    lastSensorData = newData;
+    sensorDataChanged = true;
+  }
 }
 
 void readCurrentTime() {
@@ -430,8 +435,10 @@ void readCurrentTime() {
 
   const DateTime now = rtc.now();
 
-  timeChanged = hasTimeChanged(now, lastRtcTime);
-  lastRtcTime = now;
+  if (hasTimeChanged(now, lastRtcTime)) {
+    lastRtcTime = now;
+    timeChanged = true;
+  }
 }
 
 // =====================================================
@@ -443,17 +450,19 @@ void printCurrentTime() {
     return;
   }
 
+  const DateTime now = rtc.now();
+
   char buffer[32];
   snprintf(
     buffer,
     sizeof(buffer),
     "%02u.%02u.%04u %02u:%02u:%02u",
-    lastRtcTime.day(),
-    lastRtcTime.month(),
-    lastRtcTime.year(),
-    lastRtcTime.hour(),
-    lastRtcTime.minute(),
-    lastRtcTime.second()
+    now.day(),
+    now.month(),
+    now.year(),
+    now.hour(),
+    now.minute(),
+    now.second()
   );
 
   Serial.print("[INFO] [RTC] ");
@@ -654,14 +663,22 @@ void drawPartialScreen() {
 
   if (timeChanged || !SKIP_UPDATE_IF_DATA_UNCHANGED) {
     drawPartialRegion(13, 24, 158, 80, drawTimeRegion);
-    timeChanged = false;
     didPartial = true;
+
+    if (++displayTimeUpdateCount >= DISPLAY_EXTRA_REDRAWS_AFTER_PARTIAL) {
+      timeChanged = false;
+      displayTimeUpdateCount = 0;
+    }
   }
 
   if (sensorDataChanged || !SKIP_UPDATE_IF_DATA_UNCHANGED) {
     drawPartialRegion(186, 8, 110, 112, drawSensorRegion);
-    sensorDataChanged = false;
     didPartial = true;
+
+    if (++displayDataUpdateCount >= DISPLAY_EXTRA_REDRAWS_AFTER_PARTIAL) {
+      sensorDataChanged = false;
+      displayDataUpdateCount = 0;
+    }
   }
 
   if (didPartial) ++updatesSinceFullRefresh;
