@@ -69,8 +69,8 @@ constexpr bool SKIP_UPDATE_IF_DATA_UNCHANGED = true;
 
 constexpr uint32_t SENSOR_UPDATE_INTERVAL_MS           = 30000;    // Read sensors every 30 seconds
 constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS          = 1000;     // Update display every second
-constexpr uint16_t DISPLAY_FULL_REFRESH_EVERY          = 300;      // Full refresh every N display updates
-constexpr uint8_t  DISPLAY_EXTRA_REDRAWS_AFTER_PARTIAL = 5;        // Number of additional full redraws after a partial display update 
+constexpr uint16_t DISPLAY_FULL_REFRESH_EVERY          = 200;      // Full refresh every N display updates
+constexpr uint8_t  DISPLAY_EXTRA_REDRAWS_AFTER_PARTIAL = 4;        // Number of additional full redraws after a partial display update 
 constexpr uint32_t WIFI_TIME_SYNC_INTERVAL_MS          = 1800000;  // Sync time every 30 minutes
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS             = 15000;    // Wi-Fi connection timeout
 constexpr uint32_t NTP_SYNC_TIMEOUT_MS                 = 15000;    // NTP synchronization timeout
@@ -665,7 +665,7 @@ void drawPartialScreen() {
     drawPartialRegion(13, 24, 158, 80, drawTimeRegion);
     didPartial = true;
 
-    if (++displayTimeUpdateCount >= DISPLAY_EXTRA_REDRAWS_AFTER_PARTIAL) {
+    if (++displayTimeUpdateCount > DISPLAY_EXTRA_REDRAWS_AFTER_PARTIAL) {
       timeChanged = false;
       displayTimeUpdateCount = 0;
     }
@@ -675,7 +675,7 @@ void drawPartialScreen() {
     drawPartialRegion(186, 8, 110, 112, drawSensorRegion);
     didPartial = true;
 
-    if (++displayDataUpdateCount >= DISPLAY_EXTRA_REDRAWS_AFTER_PARTIAL) {
+    if (++displayDataUpdateCount > DISPLAY_EXTRA_REDRAWS_AFTER_PARTIAL) {
       sensorDataChanged = false;
       displayDataUpdateCount = 0;
     }
