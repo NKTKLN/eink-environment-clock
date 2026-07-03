@@ -44,8 +44,8 @@ static void draw_time_zone(uint8_t *fb, const struct tm *now, bool time_valid)
         snprintf(date_str, sizeof(date_str), "--.--.----");
     }
 
-    draw_centered(fb, time_str, 35, 5);
-    draw_centered(fb, date_str, 85, 2);
+    draw_centered(fb, time_str, 32, 5);
+    draw_centered(fb, date_str, 82, 2);
 }
 
 static void draw_metric(uint8_t *fb, int y, const uint8_t *icon,
@@ -71,20 +71,20 @@ static void draw_sensor_zone(uint8_t *fb, const sensor_data_t *data)
     char buf[12];
 
     format_float(buf, sizeof(buf), data->temperature_c, 1);
-    draw_metric(fb, 23, ICON_TEMPERATURE_16X16, buf, "\xF8""C");
+    draw_metric(fb, 22, ICON_TEMPERATURE_16X16, buf, "\xF8""C");
 
     format_float(buf, sizeof(buf), data->humidity_pct, 0);
-    draw_metric(fb, 47, ICON_DROPLET_16X16, buf, "%");
+    draw_metric(fb, 46, ICON_DROPLET_16X16, buf, "%");
 
     format_float(buf, sizeof(buf), data->pressure_hpa, 0);
-    draw_metric(fb, 71, ICON_GAUGE_16X16, buf, "hPa");
+    draw_metric(fb, 70, ICON_GAUGE_16X16, buf, "hPa");
 
     if (data->co2_ppm > 0) {
         snprintf(buf, sizeof(buf), "%d", data->co2_ppm);
     } else {
         snprintf(buf, sizeof(buf), "---");
     }
-    draw_metric(fb, 95, ICON_SEEDLING_16X16, buf, "ppm");
+    draw_metric(fb, 94, ICON_SEEDLING_16X16, buf, "ppm");
 }
 
 void ui_render(uint8_t *fb, const struct tm *now, bool time_valid,
