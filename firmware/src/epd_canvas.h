@@ -4,6 +4,10 @@
  * Canvas coordinates are landscape: x in [0, 296), y in [0, 128),
  * origin at the top-left corner with the flex cable on the right
  * (same orientation as GxEPD2 rotation 3 used by the old sketch).
+ *
+ * Text uses the classic Adafruit-GFX 5x7 font with integer scaling,
+ * matching the look of the original Arduino version: a glyph cell is
+ * 6*scale x 8*scale pixels. '\xF8' renders the degree sign.
  */
 #pragma once
 
@@ -15,13 +19,8 @@
 #define CANVAS_W EPD_PANEL_H /* 296 */
 #define CANVAS_H EPD_PANEL_W /* 128 */
 
-/* Font sizes: height in pixels, width is height/2 (6px for size 8). */
-typedef enum {
-    FONT_8 = 8,   /* 6 x 8  */
-    FONT_12 = 12, /* 6 x 12 */
-    FONT_16 = 16, /* 8 x 16 */
-    FONT_24 = 24, /* 12 x 24 */
-} canvas_font_t;
+#define CANVAS_CHAR_W 6
+#define CANVAS_CHAR_H 8
 
 void canvas_clear(uint8_t *fb, bool white);
 void canvas_set_pixel(uint8_t *fb, int x, int y, bool black);
@@ -33,9 +32,7 @@ void canvas_draw_xbm(uint8_t *fb, int x, int y, const uint8_t *xbm,
 
 /* Draws text scaled by an integer factor; only ink pixels are drawn.
  * Returns the x coordinate right after the last glyph. */
-int canvas_text(uint8_t *fb, int x, int y, const char *s,
-                canvas_font_t font, int scale, bool black);
+int canvas_text(uint8_t *fb, int x, int y, const char *s, int scale,
+                bool black);
 
-int canvas_text_width(const char *s, canvas_font_t font, int scale);
-
-int canvas_font_char_width(canvas_font_t font);
+int canvas_text_width(const char *s, int scale);

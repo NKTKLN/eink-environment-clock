@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-#include "epd_font.h"
+#include "epd_font5x7.h"
 
 void canvas_clear(uint8_t *fb, bool white)
 {
@@ -53,52 +53,29 @@ void canvas_draw_xbm(uint8_t *fb, int x, int y, const uint8_t *xbm,
     }
 }
 
-int canvas_font_char_width(canvas_font_t font)
+static const uint8_t *glyph_data(char c)
 {
-    return font == FONT_8 ? 6 : font / 2;
+    unsigned char u = (unsigned char)c;
+
+    if (u == 0xF8) { /* degree sign, as in the old sketch */
+        return font5x7[FONT5X7_DEGREE_INDEX];
+    }
+    if (u < ' ' || u > '~') {
+        u = '?';
+    }
+    return font5x7[u - ' '];
 }
 
-static const uint8_t *glyph_data(char c, canvas_font_t font, int *n_bytes)
+/* Adafruit classic font: 5 column bytes per glyph, bit 0 = top row. */
+static void draw_char(uint8_t *fb, int x, int y, char c, int scale,
+                      bool black)
 {
-    if (c < ' ' || c > '~') {
-        c = '?';
-    }
-    int idx = c - ' ';
+    const uint8_t *g = glyph_data(c);
 
-    switch (font) {
-    case FONT_8:
-        *n_bytes = 6;
-        return asc2_0806[idx];
-    case FONT_12:
-        *n_bytes = 12;
-        return asc2_1206[idx];
-    case FONT_16:
-        *n_bytes = 16;
-        return asc2_1608[idx];
-    case FONT_24:
-    default:
-        *n_bytes = 36;
-        return asc2_2412[idx];
-    }
-}
-
-/* Glyph layout: bytes run column-major inside horizontal 8-row strips,
- * bit 0 = top row of the strip (WeAct example font format). */
-static void draw_char(uint8_t *fb, int x, int y, char c,
-                      canvas_font_t font, int scale, bool black)
-{
-    int n_bytes;
-    const uint8_t *g = glyph_data(c, font, &n_bytes);
-
-    int width = canvas_font_char_width(font);
-    int col = 0;
-    int strip = 0;
-
-    for (int i = 0; i < n_bytes; i++) {
-        uint8_t bits = g[i];
-        for (int m = 0; m < 8; m++) {
-            int row = strip * 8 + m;
-            if ((bits & 1) && row < font) {
+    for (int col = 0; col < 5; col++) {
+        uint8_t bits = g[col];
+        for (int row = 0; row < 7; row++) {
+            if (bits & (1 << row)) {
                 if (scale == 1) {
                     canvas_set_pixel(fb, x + col, y + row, black);
                 } else {
@@ -106,29 +83,21 @@ static void draw_char(uint8_t *fb, int x, int y, char c,
                                      scale, scale, black);
                 }
             }
-            bits >>= 1;
-        }
-        col++;
-        if (col == width) {
-            col = 0;
-            strip++;
         }
     }
 }
 
-int canvas_text(uint8_t *fb, int x, int y, const char *s,
-                canvas_font_t font, int scale, bool black)
+int canvas_text(uint8_t *fb, int x, int y, const char *s, int scale,
+                bool black)
 {
-    int advance = canvas_font_char_width(font) * scale;
-
     for (; *s != '\0'; s++) {
-        draw_char(fb, x, y, *s, font, scale, black);
-        x += advance;
+        draw_char(fb, x, y, *s, scale, black);
+        x += CANVAS_CHAR_W * scale;
     }
     return x;
 }
 
-int canvas_text_width(const char *s, canvas_font_t font, int scale)
+int canvas_text_width(const char *s, int scale)
 {
-    return (int)strlen(s) * canvas_font_char_width(font) * scale;
+    return (int)strlen(s) * CANVAS_CHAR_W * scale;
 }
