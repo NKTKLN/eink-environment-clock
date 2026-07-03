@@ -44,8 +44,8 @@ constexpr bool USE_12_HOUR_FORMAT = true;
 constexpr bool USE_WIFI_TIME_SYNC = true;
 
 // Wi-Fi credentials
-constexpr char WIFI_SSID[] = "YourWiFiName";
-constexpr char WIFI_PASSWORD[] = "YourWiFiPassword";
+constexpr char WIFI_SSID[] = "Irkallum-IoT";
+constexpr char WIFI_PASSWORD[] = "S5eqxAqQpwGdEe7V4kc4U";
 
 // NTP settings
 constexpr char NTP_SERVER[] = "pool.ntp.org";
@@ -69,7 +69,8 @@ constexpr bool SKIP_UPDATE_IF_DATA_UNCHANGED = true;
 
 constexpr uint32_t SENSOR_UPDATE_INTERVAL_MS           = 30000;    // Read sensors every 30 seconds
 constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS          = 1000;     // Update display every second
-constexpr uint16_t DISPLAY_FULL_REFRESH_EVERY          = 30;       // Full refresh every N partial updates (clears ghosting)
+constexpr uint16_t DISPLAY_FULL_REFRESH_EVERY          = 200;      // Full refresh every N display updates
+constexpr uint8_t  DISPLAY_EXTRA_REDRAWS_AFTER_PARTIAL = 4;        // Number of additional full redraws after a partial display update 
 constexpr uint32_t WIFI_TIME_SYNC_INTERVAL_MS          = 1800000;  // Sync time every 30 minutes
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS             = 15000;    // Wi-Fi connection timeout
 constexpr uint32_t NTP_SYNC_TIMEOUT_MS                 = 15000;    // NTP synchronization timeout
@@ -89,6 +90,8 @@ uint32_t lastLedToggleMs     = 0;
 // =====================================================
 
 uint16_t updatesSinceFullRefresh = 0;
+uint16_t displayTimeUpdateCount  = 0;
+uint16_t displayDataUpdateCount  = 0;
 
 // =====================================================
 // Runtime flags
@@ -386,8 +389,6 @@ bool initEpd() {
   display.init(115200);
   display.setRotation(3);
 
-  display.clearScreen();
-
   logInfo("EPD", "Initialized.");
   return true;
 }
@@ -662,14 +663,22 @@ void drawPartialScreen() {
 
   if (timeChanged || !SKIP_UPDATE_IF_DATA_UNCHANGED) {
     drawPartialRegion(13, 24, 158, 80, drawTimeRegion);
-    timeChanged = false;
     didPartial = true;
+
+    if (++displayTimeUpdateCount > DISPLAY_EXTRA_REDRAWS_AFTER_PARTIAL) {
+      timeChanged = false;
+      displayTimeUpdateCount = 0;
+    }
   }
 
   if (sensorDataChanged || !SKIP_UPDATE_IF_DATA_UNCHANGED) {
     drawPartialRegion(186, 8, 110, 112, drawSensorRegion);
-    sensorDataChanged = false;
     didPartial = true;
+
+    if (++displayDataUpdateCount > DISPLAY_EXTRA_REDRAWS_AFTER_PARTIAL) {
+      sensorDataChanged = false;
+      displayDataUpdateCount = 0;
+    }
   }
 
   if (didPartial) ++updatesSinceFullRefresh;
