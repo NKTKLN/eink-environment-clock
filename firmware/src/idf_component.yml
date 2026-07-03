@@ -1,0 +1,4 @@
+dependencies:
+  esp-idf-lib/bmp280: "*"
+  esp-idf-lib/ds3231: "*"
+  esp-idf-lib/mhz19b: "*"
