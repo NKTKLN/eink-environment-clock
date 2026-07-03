@@ -53,7 +53,7 @@ Sensors are handled by [esp-idf-lib](https://esp-idf-lib.readthedocs.io/) compon
 * **ds3231** — RTC
 * **mhz19b** — CO₂ sensor
 
-The e-paper driver is custom (no maintained SSD1680 driver exists for plain ESP-IDF) and follows the panel vendor's reference code from [WeActStudio.EpaperModule](https://github.com/WeActStudio/WeActStudio.EpaperModule).
+The e-paper driver is custom and follows the panel vendor's reference code from [WeActStudio.EpaperModule](https://github.com/WeActStudio/WeActStudio.EpaperModule).
 
 ## 📦 Case
 
@@ -74,7 +74,6 @@ The case model for this project is located in:
 * Holes for the **MH-Z19** are too small.
 * There are several issues with the mounting holes in general. Some modules are placed too close to the mounting holes, which sometimes makes assembly and fastening inconvenient.
 * The wrong header type was selected for external modules such as the display. The headers I used turned out to be smaller than the ones I had, so I ended up soldering the connection cable directly.
-* Poor implementation of the case design
 
 ## 📜 License
 
