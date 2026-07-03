@@ -22,24 +22,38 @@ images/
 
 ![Circuit](images/circuit_image.png)
 
-## 💾 Sketch
+## 💾 Firmware
 
-The firmware for this project is located in:
+The firmware is a pure **ESP-IDF** PlatformIO project (no Arduino) located in:
 
 ```bash
-sketch/
-└── eink-environment-clock.ino
+firmware/
+├── platformio.ini
+└── src/
+    ├── app_main.c       # application logic
+    ├── app_config.h     # pins, Wi-Fi credentials, timings
+    ├── epd_ssd1680.*    # e-paper driver (WeAct 2.9" B/W, SSD1680)
+    ├── epd_canvas.*     # 1bpp canvas, bitmap fonts, icons
+    ├── ui.*             # clock face rendering
+    └── net_time.*       # Wi-Fi + SNTP time sync
+```
+
+Build and flash (ESP32-C3 Super Mini over native USB):
+
+```bash
+cd firmware
+pio run -t upload && pio device monitor
 ```
 
 ## 📚 Libraries
 
-This project uses the following Arduino libraries:
+Sensors are handled by [esp-idf-lib](https://esp-idf-lib.readthedocs.io/) components (fetched automatically from the ESP Component Registry):
 
-* **GxEPD2** — by Jean-Marc Zingg
-* **Adafruit GFX Library** — by Adafruit
-* **Adafruit BME280 Library** — by Adafruit
-* **RTClib** — by Adafruit
-* **MHZ19** — by WifWaf
+* **bmp280** — BME280 temperature / humidity / pressure
+* **ds3231** — RTC
+* **mhz19b** — CO₂ sensor
+
+The e-paper driver is custom (no maintained SSD1680 driver exists for plain ESP-IDF) and follows the panel vendor's reference code from [WeActStudio.EpaperModule](https://github.com/WeActStudio/WeActStudio.EpaperModule).
 
 ## 📦 Case
 
