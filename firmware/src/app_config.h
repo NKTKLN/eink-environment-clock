@@ -33,8 +33,7 @@
 #define USE_12_HOUR_FORMAT true
 
 #define USE_WIFI_TIME_SYNC true
-#define WIFI_SSID          "Irkallum-IoT"
-#define WIFI_PASSWORD      "S5eqxAqQpwGdEe7V4kc4U"
+#include "secrets.h" /* defines WIFI_SSID / WIFI_PASSWORD, not tracked by git */
 
 #define NTP_SERVER "pool.ntp.org"
 #define TIME_ZONE  "MSK-3" /* POSIX TZ string */
@@ -58,4 +57,4 @@
  *    but not more often than once in DISPLAY_MIN_UPDATE_PERIOD_S;
  *  - forced full refresh after DISPLAY_FULL_REFRESH_EVERY_N partials. */
 #define DISPLAY_MIN_UPDATE_PERIOD_S   10
-#define DISPLAY_FULL_REFRESH_EVERY_N  30
+#define DISPLAY_FULL_REFRESH_EVERY_N  10
