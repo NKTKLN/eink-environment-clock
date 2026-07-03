@@ -115,8 +115,11 @@ static esp_err_t setup_window(void)
                                              (EPD_PANEL_H - 1) >> 8 }, 4);
     err |= write_cmd_data(CMD_RAM_X_COUNTER, (const uint8_t[]){ 0x00 }, 1);
     err |= write_cmd_data(CMD_RAM_Y_COUNTER, (const uint8_t[]){ 0x00, 0x00 }, 2);
+    /* 0x80: source outputs start at S8 — the 128 panel sources sit at
+     * S8..S135 of the SSD1680 (per the WeAct reference driver). Without
+     * this the image is shifted by 8 pixels and the last rows stay blank. */
     err |= write_cmd_data(CMD_DISPLAY_UPDATE_1,
-                          (const uint8_t[]){ 0x00, 0x00 }, 2);
+                          (const uint8_t[]){ 0x00, 0x80 }, 2);
     err |= write_cmd_data(CMD_TEMP_SENSOR, (const uint8_t[]){ 0x80 }, 1);
 
     return err == ESP_OK ? ESP_OK : ESP_FAIL;
