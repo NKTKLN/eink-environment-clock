@@ -1,4 +1,8 @@
-## 🖥️ ESP32-C3 E-Ink Environment Clock
+# 🖥️ ESP32-C3 E-Ink Environment Clock
+
+[![License](https://img.shields.io/github/license/NKTKLN/eink-environment-clock?color=green)](./LICENSE)
+[![Platform](https://img.shields.io/badge/platform-ESP32--C3-blue)](https://www.espressif.com/en/products/socs/esp32-c3)
+[![Framework](https://img.shields.io/badge/framework-ESP--IDF%20%2F%20PlatformIO-orange)](https://platformio.org/)
 
 **eink-environment-clock** is a minimal ESP32-C3 based E-Ink desk clock that displays time and indoor air data.
 It combines a low-power E-Ink screen with CO₂, temperature, humidity, and pressure sensing, making it useful as both a clock and a compact environment monitor.
@@ -30,12 +34,20 @@ The firmware is a pure **ESP-IDF** PlatformIO project (no Arduino) located in:
 firmware/
 ├── platformio.ini
 └── src/
-    ├── app_main.c       # application logic
-    ├── app_config.h     # pins, Wi-Fi credentials, timings
-    ├── epd_ssd1680.*    # e-paper driver (WeAct 2.9" B/W, SSD1680)
-    ├── epd_canvas.*     # 1bpp canvas, bitmap fonts, icons
-    ├── ui.*             # clock face rendering
-    └── net_time.*       # Wi-Fi + SNTP time sync
+    ├── app_main.c        # application logic
+    ├── app_config.h      # pins, Wi-Fi credentials, timings
+    ├── secrets.h.example # Wi-Fi credentials template (copy to secrets.h)
+    ├── epd_ssd1680.*     # e-paper driver (WeAct 2.9" B/W, SSD1680)
+    ├── epd_canvas.*      # 1bpp canvas, bitmap fonts, icons
+    ├── ui.*              # clock face rendering
+    └── net_time.*        # Wi-Fi + SNTP time sync
+```
+
+Before building, set up your Wi-Fi credentials (only needed if `USE_WIFI_TIME_SYNC` is enabled in `app_config.h`):
+
+```bash
+cp firmware/src/secrets.h.example firmware/src/secrets.h
+# then edit secrets.h with your WIFI_SSID / WIFI_PASSWORD
 ```
 
 Build and flash (ESP32-C3 Super Mini over native USB):
