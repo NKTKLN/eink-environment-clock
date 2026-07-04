@@ -84,8 +84,7 @@ The case model for this project is located in:
 ## ⚠️ Known Issues
 
 * Holes for the **MH-Z19** are too small.
-* There are several issues with the mounting holes in general. Some modules are placed too close to the mounting holes, which sometimes makes assembly and fastening inconvenient.
-* The wrong header type was selected for external modules such as the display. The headers I used turned out to be smaller than the ones I had, so I ended up soldering the connection cable directly.
+* Some modules (**MH-Z19**) are placed too close to the mounting holes, which sometimes makes assembly and fastening inconvenient.
 
 ## 📜 License
 
