@@ -1,4 +1,4 @@
-# 🖥️ ESP32-C3 E-Ink Environment Clock
+# 🖥️ E-Ink Environment Clock
 
 [![License](https://img.shields.io/github/license/NKTKLN/eink-environment-clock?color=green)](./LICENSE)
 [![Platform](https://img.shields.io/badge/platform-ESP32--C3-blue)](https://www.espressif.com/en/products/socs/esp32-c3)
