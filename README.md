@@ -110,6 +110,20 @@ data:
   payload: '{"text": "Open the window", "ttl": 600, "fullscreen": true}'
 ```
 
+### Updates
+
+Releases are published by CI: pushing a version tag (commitizen format, e.g. `1.1.0`) builds the firmware with that version and attaches `firmware.bin` to a GitHub release.
+
+```sh
+cz bump && git push --follow-tags
+```
+
+The clock checks the latest release once a day (**System → Firmware update**, on by default) and shows its notes with an **Install** button. With automatic updates on, a newer release is installed between 03:00 and 05:00 local time. Downloads go over HTTPS; if the new image does not start, the bootloader returns to the previous one. Settings live in the `nvs` partition and survive updates.
+
+### Developer tools
+
+The **Developer** tab shows the device log live (the last 12 KB since boot, filter by level and text, download), changes the log level per tag, sends arbitrary API requests and shows the raw `/api/state` JSON.
+
 ### HTTP API
 
 No keys or accounts. All endpoints return JSON except the screen images.
@@ -125,6 +139,10 @@ No keys or accounts. All endpoints return JSON except the screen images.
 | `POST` | `/api/wifi` | Save a network and connect |
 | `POST` | `/api/co2/calibrate` | MH-Z19 zero point (400 ppm) |
 | `POST` | `/api/ota` | Firmware image as the request body |
+| `GET` | `/api/update` | Running and latest release, update progress |
+| `POST` | `/api/update/check`, `/api/update/install` | Check GitHub now, install the latest release |
+| `GET` | `/api/logs?since=N` | Device log after position `N` |
+| `POST` | `/api/log-level` | `{"level": "debug", "tag": "*"}` |
 | `POST` | `/api/system/reboot`, `/forget-wifi`, `/factory-reset` | Maintenance |
 
 ```bash
