@@ -9,8 +9,8 @@
 
 #include "app_config.h"
 #include "app_state.h"
+#include "ha_command.h"
 #include "ha_discovery.h"
-#include "notify.h"
 #include "settings_store.h"
 #include "wifi_mgr.h"
 
@@ -102,19 +102,15 @@ static void subscribe_all(const settings_t *s)
     }
 }
 
-static bool topic_is(const esp_mqtt_event_t *e, const char *suffix)
+/* Saves one setting through a JSON patch, so a concurrent save from the web
+ * interface is never overwritten with stale values. */
+static void patch_setting(const char *section, const char *key, cJSON *value)
 {
-    size_t blen = strlen(s_base);
-    size_t slen = strlen(suffix);
-    return (size_t)e->topic_len == blen + 1 + slen &&
-           strncmp(e->topic, s_base, blen) == 0 && e->topic[blen] == '/' &&
-           strncmp(e->topic + blen + 1, suffix, slen) == 0;
-}
-
-static bool payload_is(const esp_mqtt_event_t *e, const char *s)
-{
-    return (size_t)e->data_len == strlen(s) &&
-           strncmp(e->data, s, (size_t)e->data_len) == 0;
+    cJSON *root = cJSON_CreateObject();
+    cJSON *sec = cJSON_AddObjectToObject(root, section);
+    cJSON_AddItemToObject(sec, key, value);
+    settings_patch_json(root);
+    cJSON_Delete(root);
 }
 
 static void handle_message(const esp_mqtt_event_t *e)
@@ -126,68 +122,43 @@ static void handle_message(const esp_mqtt_event_t *e)
 
     settings_t s;
     settings_get(&s);
-    char t[96];
-    snprintf(t, sizeof(t), "%s/status", s.mqtt.discovery_prefix);
-    if ((size_t)e->topic_len == strlen(t) &&
-        strncmp(e->topic, t, (size_t)e->topic_len) == 0) {
-        if (payload_is(e, "online")) {
-            ESP_LOGI(TAG, "Home Assistant restarted, re-sending discovery");
-            publish_discovery(&s);
-            s_publish_now = true;
-        }
-        return;
-    }
+    static ha_command_t cmd; /* ~300 bytes, keep it off the MQTT task stack */
+    ha_parse_command(s_base, s.mqtt.discovery_prefix, e->topic, e->topic_len,
+                     e->data, e->data_len, &cmd);
 
-    if (topic_is(e, HA_TOPIC_NOTIFY) || topic_is(e, HA_TOPIC_NOTIFICATION)) {
-        char text[NOTIFY_TEXT_MAX];
-        int ttl = 0;
-        bool fullscreen = false;
-        if (topic_is(e, HA_TOPIC_NOTIFY)) {
-            if (!notify_parse(e->data, e->data_len, text, sizeof(text), &ttl,
-                              &fullscreen)) {
-                ESP_LOGW(TAG, "bad notify payload");
-                return;
-            }
-        } else {
-            int len = e->data_len < (int)sizeof(text) - 1
-                          ? e->data_len
-                          : (int)sizeof(text) - 1;
-            notify_parse(e->data, len, text, sizeof(text), &ttl, &fullscreen);
-            ttl = 0;
-            fullscreen = false;
-        }
-        app_notify(text, ttl, fullscreen);
-        app_request_redraw();
-    } else if (topic_is(e, HA_TOPIC_COMMAND)) {
-        if (payload_is(e, HA_CMD_CLEAR_NOTIFICATION)) {
-            app_notify_clear();
-            app_request_redraw();
-        } else if (payload_is(e, HA_CMD_REBOOT)) {
-            app_restart_later(OVERLAY_RESTART, 3000);
-        } else if (payload_is(e, HA_CMD_CALIBRATE_CO2)) {
-            app_request_co2_calibration();
-        }
-    } else if (topic_is(e, HA_TOPIC_LAYOUT)) {
-        char name[16];
-        int len = e->data_len < (int)sizeof(name) - 1 ? e->data_len
-                                                      : (int)sizeof(name) - 1;
-        memcpy(name, e->data, (size_t)len);
-        name[len] = '\0';
-        layout_t l;
-        if (layout_from_name(name, &l)) {
-            s.display.layout = l;
-            settings_set(&s);
-        }
-    } else if (topic_is(e, HA_TOPIC_THRESHOLD)) {
-        char num[16];
-        int len = e->data_len < (int)sizeof(num) - 1 ? e->data_len
-                                                     : (int)sizeof(num) - 1;
-        memcpy(num, e->data, (size_t)len);
-        num[len] = '\0';
-        s.sensors.co2_threshold_ppm = (int)strtof(num, NULL);
-        settings_set(&s);
-    } else {
+    switch (cmd.action) {
+    case HA_ACT_NONE:
         return;
+    case HA_ACT_INVALID:
+        ESP_LOGW(TAG, "ignoring malformed message on %.*s", e->topic_len,
+                 e->topic);
+        return;
+    case HA_ACT_HA_ONLINE:
+        ESP_LOGI(TAG, "Home Assistant restarted, re-sending discovery");
+        publish_discovery(&s);
+        break;
+    case HA_ACT_NOTIFY:
+        app_notify(cmd.text, cmd.ttl_s, cmd.fullscreen);
+        app_request_redraw();
+        break;
+    case HA_ACT_CLEAR:
+        app_notify_clear();
+        app_request_redraw();
+        break;
+    case HA_ACT_REBOOT:
+        app_restart_later(OVERLAY_RESTART, 3000);
+        break;
+    case HA_ACT_CALIBRATE:
+        app_request_co2_calibration();
+        break;
+    case HA_ACT_LAYOUT:
+        patch_setting("display", "layout",
+                      cJSON_CreateString(layout_name(cmd.layout)));
+        break;
+    case HA_ACT_THRESHOLD:
+        patch_setting("sensors", "co2_threshold_ppm",
+                      cJSON_CreateNumber(cmd.threshold));
+        break;
     }
     s_publish_now = true;
 }
