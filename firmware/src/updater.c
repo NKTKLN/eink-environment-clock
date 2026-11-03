@@ -84,7 +84,18 @@ static esp_err_t check(void)
     esp_http_client_fetch_headers(client);
     int status = esp_http_client_get_status_code(client);
     if (status == 404) {
-        set_error("no releases published yet");
+        /* A repository without releases: a normal answer, not an error. */
+        LOCK();
+        s_st.checked = true;
+        s_st.available = false;
+        s_st.latest[0] = '\0';
+        s_st.notes[0] = '\0';
+        s_st.page[0] = '\0';
+        s_url[0] = '\0';
+        UNLOCK();
+        s_last_check_ms = app_uptime_ms();
+        ESP_LOGI(TAG, "no releases published yet");
+        result = ESP_OK;
         goto done;
     }
     if (status != 200) {

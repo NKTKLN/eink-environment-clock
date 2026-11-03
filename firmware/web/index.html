@@ -644,7 +644,7 @@ POST   /api/system/{reboot,forget-wifi,factory-reset}</pre>
           <label class="field"><span data-i18n="log_level">Device log level</span>
             <select id="log-level" name="log_level">
               <option value="error">error</option><option value="warn">warn</option><option value="info" selected>info</option>
-              <option value="debug">debug</option><option value="verbose">verbose</option>
+              <option value="debug">debug</option>
             </select></label>
           <label class="field"><span data-i18n="log_tag">Tag (* = all)</span>
             <input type="text" id="log-tag" name="log_tag" value="*" spellcheck="false" autocapitalize="off" autocomplete="off"></label>
@@ -761,7 +761,7 @@ const I18N = {
     tab_dev: "Developer", fw_manual: "Install a file manually", upd_notes: "What's new",
     upd_check: "Check for updates", upd_checking: "Checking GitHub…", upd_install: "Install {0}", upd_installing: "Installing… {0}%",
     upd_auto_check: "Check GitHub for new versions once a day", upd_auto_install: "Install new versions automatically at night (03:00–05:00)",
-    k_latest: "Latest release", k_checked: "Last check", upd_never: "not checked yet", upd_ago: "{0} ago", just_now: "just now", upd_uptodate: "up to date",
+    k_latest: "Latest release", k_checked: "Last check", upd_never: "not checked yet", upd_none: "none published yet", upd_ago: "{0} ago", just_now: "just now", upd_uptodate: "up to date",
     upd_new: "new", upd_offline: "Connect the clock to the internet to check for updates.", upd_confirm: "Install version {0}? The clock restarts when it is done; settings are kept.",
     upd_started: "Downloading {0}. The screen shows the progress.",
     log_title: "Device log", log_filter: "Show levels", log_all: "All levels", log_e: "Errors", log_ew: "Errors and warnings", log_ewi: "Without debug",
@@ -833,7 +833,7 @@ const I18N = {
     tab_dev: "Разработчику", fw_manual: "Установить файл вручную", upd_notes: "Что нового",
     upd_check: "Проверить обновления", upd_checking: "Проверка на GitHub…", upd_install: "Установить {0}", upd_installing: "Установка… {0}%",
     upd_auto_check: "Проверять новые версии на GitHub раз в день", upd_auto_install: "Ставить новые версии автоматически ночью (03:00–05:00)",
-    k_latest: "Последний релиз", k_checked: "Проверено", upd_never: "ещё не проверялось", upd_ago: "{0} назад", just_now: "только что", upd_uptodate: "установлена последняя",
+    k_latest: "Последний релиз", k_checked: "Проверено", upd_never: "ещё не проверялось", upd_none: "пока не опубликован", upd_ago: "{0} назад", just_now: "только что", upd_uptodate: "установлена последняя",
     upd_new: "новая", upd_offline: "Подключите часы к интернету, чтобы проверить обновления.", upd_confirm: "Установить версию {0}? По окончании часы перезапустятся; настройки сохранятся.",
     upd_started: "Загрузка {0}. Ход установки виден на экране часов.",
     log_title: "Лог устройства", log_filter: "Уровни", log_all: "Все уровни", log_e: "Ошибки", log_ew: "Ошибки и предупреждения", log_ewi: "Без отладки",
@@ -1443,9 +1443,9 @@ function renderUpdate() {
   if (!upd) return;
   const online = state && state.wifi.connected;
   kv("#upd-kv", [
-    [t("k_latest"), upd.checked
-      ? esc(upd.latest) + (upd.available ? `<span class="badge">${t("upd_new")}</span>` : ` <span class="muted">${t("upd_uptodate")}</span>`)
-      : t("upd_never")],
+    [t("k_latest"), !upd.checked ? t("upd_never")
+      : !upd.latest ? t("upd_none")
+      : esc(upd.latest) + (upd.available ? `<span class="badge">${t("upd_new")}</span>` : ` <span class="muted">${t("upd_uptodate")}</span>`)],
     upd.checked_ago_s !== null && [t("k_checked"), ago(upd.checked_ago_s)],
   ]);
   $("#upd-notes-box").hidden = !upd.notes;
