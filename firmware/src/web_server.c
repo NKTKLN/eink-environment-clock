@@ -10,6 +10,8 @@
 #include "esp_mac.h"
 #include "esp_ota_ops.h"
 #include "esp_system.h"
+#include "lwip/inet.h"
+#include "lwip/sockets.h"
 
 #include "app_state.h"
 #include "bmp.h"
@@ -146,14 +148,31 @@ static esp_err_t index_get(httpd_req_t *req)
 /* Any unknown GET. While the setup AP is up, requests for foreign hosts
  * (connectivity checks: generate_204, hotspot-detect.html, ...) are
  * redirected to the setup page, which makes phones show the portal. */
+static bool via_access_point(httpd_req_t *req)
+{
+    struct sockaddr_in6 addr;
+    socklen_t len = sizeof(addr);
+    if (getsockname(httpd_req_to_sockfd(req), (struct sockaddr *)&addr,
+                    &len) != 0) {
+        return false;
+    }
+    char ip[48] = "";
+    if (addr.sin6_family == AF_INET6) {
+        /* IPv4-mapped: the IPv4 address sits in the last 4 bytes */
+        inet_ntop(AF_INET, &addr.sin6_addr.un.u32_addr[3], ip, sizeof(ip));
+    } else {
+        inet_ntop(AF_INET, &((struct sockaddr_in *)&addr)->sin_addr, ip,
+                  sizeof(ip));
+    }
+    return strcmp(ip, WIFI_AP_IP) == 0;
+}
+
 static esp_err_t fallback_get(httpd_req_t *req)
 {
-    wifi_status_t ws;
-    wifi_mgr_get_status(&ws);
     char host[64] = "";
     httpd_req_get_hdr_value_str(req, "Host", host, sizeof(host));
 
-    if (ws.ap_active && strcmp(host, WIFI_AP_IP) != 0) {
+    if (via_access_point(req) && strcmp(host, WIFI_AP_IP) != 0) {
         httpd_resp_set_status(req, "302 Found");
         httpd_resp_set_hdr(req, "Location", "http://" WIFI_AP_IP "/");
         return httpd_resp_send(req, NULL, 0);
