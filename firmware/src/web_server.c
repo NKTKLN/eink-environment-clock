@@ -16,11 +16,13 @@
 #include "app_state.h"
 #include "bmp.h"
 #include "epd_canvas.h"
+#include "log_capture.h"
 #include "mqtt_ha.h"
 #include "net_time.h"
 #include "notify.h"
 #include "sensors.h"
 #include "settings_store.h"
+#include "updater.h"
 #include "web_index.h"
 #include "wifi_mgr.h"
 
@@ -623,11 +625,124 @@ static esp_err_t ota_post(httpd_req_t *req)
 }
 
 /* ===================================================== */
+/* Updates                                               */
+/* ===================================================== */
+
+static esp_err_t update_get(httpd_req_t *req)
+{
+    update_status_t st;
+    updater_get_status(&st);
+    settings_t s;
+    settings_get(&s);
+
+    static const char *BUSY[] = { "idle", "checking", "installing" };
+    cJSON *j = cJSON_CreateObject();
+    cJSON_AddStringToObject(j, "current", app_version());
+    cJSON_AddStringToObject(j, "state", BUSY[st.busy]);
+    cJSON_AddBoolToObject(j, "checked", st.checked);
+    cJSON_AddBoolToObject(j, "available", st.available);
+    cJSON_AddStringToObject(j, "latest", st.latest);
+    cJSON_AddStringToObject(j, "notes", st.notes);
+    cJSON_AddStringToObject(j, "page", st.page);
+    cJSON_AddNumberToObject(j, "size", st.size);
+    if (st.checked_ago_s >= 0) {
+        cJSON_AddNumberToObject(j, "checked_ago_s", (double)st.checked_ago_s);
+    } else {
+        cJSON_AddNullToObject(j, "checked_ago_s");
+    }
+    cJSON_AddStringToObject(j, "error", st.error);
+    cJSON_AddNumberToObject(j, "progress", st.progress);
+    cJSON_AddBoolToObject(j, "auto_check", s.update.check);
+    cJSON_AddBoolToObject(j, "auto_install", s.update.auto_install);
+    return send_json(req, j);
+}
+
+static esp_err_t update_check_post(httpd_req_t *req)
+{
+    esp_err_t err = updater_request_check();
+    if (err != ESP_OK) {
+        return send_error(req, "409 Conflict",
+                          "busy, or the clock is not connected to the internet");
+    }
+    return send_ok(req);
+}
+
+static esp_err_t update_install_post(httpd_req_t *req)
+{
+    esp_err_t err = updater_request_install();
+    if (err == ESP_ERR_NOT_FOUND) {
+        return send_error(req, "409 Conflict", "no newer release found");
+    }
+    if (err != ESP_OK) {
+        return send_error(req, "409 Conflict",
+                          "busy, or the clock is not connected to the internet");
+    }
+    return send_ok(req);
+}
+
+/* ===================================================== */
+/* Developer tools                                       */
+/* ===================================================== */
+
+/* GET /api/logs?since=N -> {"next": M, "dropped": bool, "text": "..."} */
+static esp_err_t logs_get(httpd_req_t *req)
+{
+    uint32_t pos = 0;
+    char query[48], value[16];
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
+        httpd_query_key_value(query, "since", value, sizeof(value)) == ESP_OK) {
+        pos = (uint32_t)strtoul(value, NULL, 10);
+    }
+
+    const size_t cap = 4096;
+    char *buf = malloc(cap + 1);
+    if (buf == NULL) {
+        return httpd_resp_send_500(req);
+    }
+    int dropped;
+    size_t n = log_capture_read(&pos, buf, cap, &dropped);
+    buf[n] = '\0';
+
+    cJSON *j = cJSON_CreateObject();
+    cJSON_AddNumberToObject(j, "next", pos);
+    cJSON_AddBoolToObject(j, "dropped", dropped);
+    cJSON_AddStringToObject(j, "text", buf);
+    free(buf);
+    return send_json(req, j);
+}
+
+/* POST {"level": "none|error|warn|info|debug|verbose", "tag": "*"} */
+static esp_err_t log_level_post(httpd_req_t *req)
+{
+    static const char *NAMES[] = { "none", "error", "warn", "info", "debug", "verbose" };
+    cJSON *json = read_json(req);
+    const char *level = cJSON_GetStringValue(cJSON_GetObjectItem(json, "level"));
+    const char *tag = cJSON_GetStringValue(cJSON_GetObjectItem(json, "tag"));
+    int found = -1;
+    for (int i = 0; level != NULL && i < 6; i++) {
+        if (strcmp(level, NAMES[i]) == 0) {
+            found = i;
+        }
+    }
+    if (found < 0) {
+        cJSON_Delete(json);
+        return send_error(req, "400 Bad Request",
+                          "level must be none, error, warn, info, debug or verbose");
+    }
+    char t[24];
+    strlcpy(t, tag != NULL && tag[0] ? tag : "*", sizeof(t));
+    cJSON_Delete(json);
+    esp_log_level_set(t, (esp_log_level_t)found);
+    ESP_LOGI(TAG, "log level of %s set to %s", t, NAMES[found]);
+    return send_ok(req);
+}
+
+/* ===================================================== */
 
 esp_err_t web_server_start(void)
 {
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
-    cfg.max_uri_handlers = 24;
+    cfg.max_uri_handlers = 32;
     cfg.uri_match_fn = httpd_uri_match_wildcard;
     cfg.stack_size = 8192;
     cfg.lru_purge_enable = true;
@@ -658,6 +773,11 @@ esp_err_t web_server_start(void)
         { "/api/system/forget-wifi", HTTP_POST, forget_wifi_post, NULL },
         { "/api/system/factory-reset", HTTP_POST, factory_reset_post, NULL },
         { "/api/ota", HTTP_POST, ota_post, NULL },
+        { "/api/update", HTTP_GET, update_get, NULL },
+        { "/api/update/check", HTTP_POST, update_check_post, NULL },
+        { "/api/update/install", HTTP_POST, update_install_post, NULL },
+        { "/api/logs", HTTP_GET, logs_get, NULL },
+        { "/api/log-level", HTTP_POST, log_level_post, NULL },
         { "/api/*", HTTP_OPTIONS, options_any, NULL },
         { "/*", HTTP_GET, fallback_get, NULL },
     };

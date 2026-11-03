@@ -259,6 +259,26 @@ summary:hover { color: var(--ink); }
 details > .row { margin-top: 12px; }
 pre { margin: 10px 0 0; padding: 12px; overflow: auto; background: var(--paper); border: 1px solid var(--line); font-size: 12px; }
 
+/* updates */
+.update-notes { white-space: pre-wrap; font: 13px/1.5 var(--sans); max-height: 220px; }
+.badge { display: inline-block; padding: 1px 7px; margin-left: 6px; font: 11px var(--mono); background: var(--moss); color: var(--moss-ink); vertical-align: 1px; }
+
+/* developer tools */
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.toolbar select, .toolbar input[type=text] { width: auto; min-height: 36px; padding: 6px 10px; }
+.toolbar select { padding-right: 32px; }
+.toolbar input[type=text] { flex: 1 1 160px; }
+.toolbar .btn { min-height: 36px; padding: 6px 12px; }
+.log { height: clamp(260px, 55vh, 560px); margin: 0; overflow: auto; overscroll-behavior: contain; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.45; }
+.log .E { color: var(--alarm); font-weight: 600; }
+.log .W { color: var(--alarm); }
+.log .D, .log .V { color: var(--muted); }
+.log mark { background: var(--sage); color: inherit; }
+.log-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+textarea { width: 100%; min-height: 90px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 0; background: var(--paper); color: var(--ink); font: 13px var(--mono); resize: vertical; }
+.json { max-height: 420px; }
+.http-status { font: 13px var(--mono); }
+
 /* confirmation dialog */
 dialog { max-width: min(440px, calc(100vw - 32px)); padding: 22px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
 dialog::backdrop { background: rgb(10 12 13 / .55); }
@@ -274,7 +294,7 @@ footer { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
 
 /* Touch screens: 16px fields stop iOS from zooming in on focus. */
 @media (pointer: coarse) {
-  input[type=text], input[type=password], input[type=number], select { font-size: 16px; }
+  input[type=text], input[type=password], input[type=number], select, textarea { font-size: 16px; }
   .icon-btn { width: 40px; height: 40px; }
 }
 
@@ -327,6 +347,7 @@ footer { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
       <button role="tab" id="tab-btn-display" aria-controls="tab-display" data-tab="display" data-i18n="tab_display">Display</button>
       <button role="tab" id="tab-btn-network" aria-controls="tab-network" data-tab="network" data-i18n="tab_network">Network</button>
       <button role="tab" id="tab-btn-system" aria-controls="tab-system" data-tab="system" data-i18n="tab_system">System</button>
+      <button role="tab" id="tab-btn-dev" aria-controls="tab-dev" data-tab="dev" data-i18n="tab_dev">Developer</button>
     </nav>
   </div>
 </header>
@@ -530,7 +551,25 @@ footer { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
         <section class="card" aria-labelledby="h-fw">
           <h2 id="h-fw" data-i18n="fw_title">Firmware update</h2>
           <dl class="kv" id="fw-kv"></dl>
-          <form id="ota-form">
+
+          <div id="upd-box">
+            <dl class="kv" id="upd-kv"></dl>
+            <details id="upd-notes-box" hidden>
+              <summary data-i18n="upd_notes">What's new</summary>
+              <pre class="update-notes" id="upd-notes"></pre>
+            </details>
+            <div class="actions" style="margin:12px 0 4px">
+              <button class="btn" type="button" id="upd-install" hidden></button>
+              <button class="btn ghost" type="button" id="upd-check" data-i18n="upd_check">Check for updates</button>
+            </div>
+            <p class="status" id="upd-status" aria-live="polite"></p>
+            <label class="check"><input type="checkbox" id="upd-auto-check" name="update_check"><span data-i18n="upd_auto_check">Check GitHub for new versions once a day</span></label>
+            <label class="check"><input type="checkbox" id="upd-auto-install" name="update_auto"><span data-i18n="upd_auto_install">Install new versions automatically at night (03:00–05:00)</span></label>
+          </div>
+
+          <details style="margin-top:12px">
+            <summary data-i18n="fw_manual">Install a file manually</summary>
+          <form id="ota-form" style="margin-top:12px">
             <div class="field">
               <label class="file">
                 <input type="file" id="ota-file" name="firmware" accept=".bin,application/octet-stream">
@@ -542,7 +581,8 @@ footer { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
             <div class="actions"><button class="btn" type="submit" id="ota-submit" data-i18n="fw_upload" disabled>Install</button></div>
             <p class="status" id="ota-status" aria-live="polite"></p>
           </form>
-          <p class="hint" data-i18n="fw_hint">If the new firmware fails to start, the clock goes back to the current one.</p>
+          </details>
+          <p class="hint" style="margin-top:12px" data-i18n="fw_hint">If the new firmware fails to start, the clock goes back to the current one. Settings are kept.</p>
         </section>
 
         <section class="card" aria-labelledby="h-maint">
@@ -568,6 +608,65 @@ POST   /api/co2/calibrate
 POST   /api/ota
 POST   /api/system/{reboot,forget-wifi,factory-reset}</pre>
           <pre id="api-example" translate="no"></pre>
+        </section>
+      </div>
+    </div>
+  </section>
+  <!-- ============ Developer ============ -->
+  <section role="tabpanel" id="tab-dev" aria-labelledby="tab-btn-dev">
+    <div class="grid">
+      <section class="card" aria-labelledby="h-log">
+        <h2 id="h-log" data-i18n="log_title">Device log</h2>
+        <div class="toolbar">
+          <select id="log-filter" data-i18n-aria="log_filter">
+            <option value="" data-i18n="log_all">All levels</option>
+            <option value="E" data-i18n="log_e">Errors</option>
+            <option value="EW" data-i18n="log_ew">Errors and warnings</option>
+            <option value="EWI" data-i18n="log_ewi">Without debug</option>
+          </select>
+          <input type="text" id="log-search" spellcheck="false" autocomplete="off" data-i18n-placeholder="log_search" data-i18n-aria="log_search">
+          <button class="btn ghost" type="button" id="log-pause" aria-pressed="false" data-i18n="log_pause">Pause</button>
+          <button class="btn ghost" type="button" id="log-clear" data-i18n="log_clear">Clear</button>
+          <button class="btn ghost" type="button" id="log-save" data-i18n="log_save">Download</button>
+        </div>
+        <pre class="log" id="log" translate="no" tabindex="0"></pre>
+        <div class="log-meta"><span id="log-info"></span><label class="check" style="margin:0"><input type="checkbox" id="log-follow" checked><span data-i18n="log_follow">Follow new lines</span></label></div>
+        <div class="row" style="margin-top:14px">
+          <label class="field"><span data-i18n="log_level">Device log level</span>
+            <select id="log-level" name="log_level">
+              <option value="error">error</option><option value="warn">warn</option><option value="info" selected>info</option>
+              <option value="debug">debug</option><option value="verbose">verbose</option>
+            </select></label>
+          <label class="field"><span data-i18n="log_tag">Tag (* = all)</span>
+            <input type="text" id="log-tag" name="log_tag" value="*" spellcheck="false" autocapitalize="off" autocomplete="off"></label>
+          <div class="field" style="flex:0 0 auto"><button class="btn ghost" type="button" id="log-level-set" data-i18n="apply">Apply</button></div>
+        </div>
+        <p class="status" id="log-status" aria-live="polite"></p>
+        <p class="hint" data-i18n="log_hint">The last 12 KB of output since the clock started. The level resets to info after a restart.</p>
+      </section>
+
+      <div class="grid cols">
+        <section class="card" aria-labelledby="h-console">
+          <h2 id="h-console" data-i18n="console_title">API console</h2>
+          <form id="console-form">
+            <div class="row">
+              <label class="field narrow"><span data-i18n="console_method">Method</span>
+                <select id="console-method" name="method"><option>GET</option><option>POST</option><option>DELETE</option></select></label>
+              <label class="field wide"><span data-i18n="console_path">Path</span>
+                <input type="text" id="console-path" name="path" value="/api/state" class="mono" spellcheck="false" autocapitalize="off" autocomplete="off"></label>
+            </div>
+            <label class="field"><span data-i18n="console_body">JSON body</span>
+              <textarea id="console-body" name="body" spellcheck="false" placeholder='{"text": "Hello", "ttl": 60}'></textarea></label>
+            <div class="actions"><button class="btn" type="submit" data-i18n="console_send">Send request</button></div>
+          </form>
+          <p class="http-status status" id="console-status" aria-live="polite"></p>
+          <pre class="json" id="console-out" translate="no"></pre>
+        </section>
+
+        <section class="card" aria-labelledby="h-raw">
+          <h2 id="h-raw" data-i18n="raw_title">Raw state</h2>
+          <p class="hint" data-i18n="raw_hint">GET /api/state, refreshed every 5 seconds.</p>
+          <pre class="json" id="raw-state" translate="no"></pre>
         </section>
       </div>
     </div>
@@ -640,7 +739,7 @@ const I18N = {
     cal_title: "CO₂ calibration", cal_hint: "Sets the current reading as 400 ppm. Keep the clock outdoors or by an open window for at least 20 minutes first.",
     cal_btn: "Calibrate to 400 ppm", cal_confirm: "Has the clock been in fresh air for 20 minutes? The current reading becomes 400 ppm.", cal_done: "Calibration started.",
     fw_title: "Firmware update", fw_choose: "Choose firmware.bin", fw_none: "No file selected", fw_upload: "Install",
-    fw_hint: "If the new firmware fails to start, the clock goes back to the current one.",
+    fw_hint: "If the new firmware fails to start, the clock goes back to the current one. Settings are kept.",
     k_version: "Version", k_partition: "Partition", k_idf: "ESP-IDF", k_heap: "Free memory", k_reset: "Last reset", k_mac: "MAC",
     ota_uploading: "Uploading… {0}%", ota_done: "Installed. Restarting…", ota_back: "The clock is back with version {0}.",
     maint_title: "Restart and reset", reboot: "Restart", forget: "Forget Wi-Fi", factory: "Erase all settings",
@@ -650,6 +749,19 @@ const I18N = {
     cancel: "Cancel",
     api_title: "Local HTTP API", api_hint: "No keys or accounts. JSON in and out, except the screen images.",
     offline: "No connection to the clock. Retrying…", error: "Error: {0}", network_error: "the clock did not answer",
+    tab_dev: "Developer", fw_manual: "Install a file manually", upd_notes: "What's new",
+    upd_check: "Check for updates", upd_checking: "Checking GitHub…", upd_install: "Install {0}", upd_installing: "Installing… {0}%",
+    upd_auto_check: "Check GitHub for new versions once a day", upd_auto_install: "Install new versions automatically at night (03:00–05:00)",
+    k_latest: "Latest release", k_checked: "Last check", upd_never: "not checked yet", upd_ago: "{0} ago", just_now: "just now", upd_uptodate: "up to date",
+    upd_new: "new", upd_offline: "Connect the clock to the internet to check for updates.", upd_confirm: "Install version {0}? The clock restarts when it is done; settings are kept.",
+    upd_started: "Downloading {0}. The screen shows the progress.",
+    log_title: "Device log", log_filter: "Show levels", log_all: "All levels", log_e: "Errors", log_ew: "Errors and warnings", log_ewi: "Without debug",
+    log_search: "Filter text…", log_pause: "Pause", log_resume: "Resume", log_clear: "Clear", log_save: "Download", log_follow: "Follow new lines",
+    log_level: "Device log level", log_tag: "Tag (* = all)", apply: "Apply", log_level_set: "Log level of {0} is now {1}.",
+    log_hint: "The last 12 KB of output since the clock started. The level resets to info after a restart.",
+    log_lines: "{0} lines", log_dropped: "older lines were overwritten", log_paused: "paused",
+    console_title: "API console", console_method: "Method", console_path: "Path", console_body: "JSON body", console_send: "Send request",
+    raw_title: "Raw state", raw_hint: "GET /api/state, refreshed every 5 seconds.",
     footer: "{0} · firmware {1} · {2}", units: ["d", "h", "min"],
   },
   ru: {
@@ -699,7 +811,7 @@ const I18N = {
     cal_title: "Калибровка CO₂", cal_hint: "Текущее показание принимается за 400 ppm. Перед этим держите часы на улице или у открытого окна не меньше 20 минут.",
     cal_btn: "Калибровать на 400 ppm", cal_confirm: "Часы 20 минут на свежем воздухе? Текущее показание станет 400 ppm.", cal_done: "Калибровка запущена.",
     fw_title: "Обновление прошивки", fw_choose: "Выбрать firmware.bin", fw_none: "Файл не выбран", fw_upload: "Установить",
-    fw_hint: "Если новая прошивка не запустится, часы вернутся к текущей.",
+    fw_hint: "Если новая прошивка не запустится, часы вернутся к текущей. Настройки сохранятся.",
     k_version: "Версия", k_partition: "Раздел", k_idf: "ESP-IDF", k_heap: "Свободная память", k_reset: "Последний сброс", k_mac: "MAC",
     ota_uploading: "Загрузка… {0}%", ota_done: "Установлено. Перезапуск…", ota_back: "Часы снова в сети, версия {0}.",
     maint_title: "Перезапуск и сброс", reboot: "Перезапустить", forget: "Забыть Wi-Fi", factory: "Стереть все настройки",
@@ -709,6 +821,19 @@ const I18N = {
     cancel: "Отмена",
     api_title: "Локальный HTTP API", api_hint: "Без ключей и аккаунтов. JSON на входе и выходе, кроме картинок экрана.",
     offline: "Нет связи с часами. Повторяю…", error: "Ошибка: {0}", network_error: "часы не ответили",
+    tab_dev: "Разработчику", fw_manual: "Установить файл вручную", upd_notes: "Что нового",
+    upd_check: "Проверить обновления", upd_checking: "Проверка на GitHub…", upd_install: "Установить {0}", upd_installing: "Установка… {0}%",
+    upd_auto_check: "Проверять новые версии на GitHub раз в день", upd_auto_install: "Ставить новые версии автоматически ночью (03:00–05:00)",
+    k_latest: "Последний релиз", k_checked: "Проверено", upd_never: "ещё не проверялось", upd_ago: "{0} назад", just_now: "только что", upd_uptodate: "установлена последняя",
+    upd_new: "новая", upd_offline: "Подключите часы к интернету, чтобы проверить обновления.", upd_confirm: "Установить версию {0}? По окончании часы перезапустятся; настройки сохранятся.",
+    upd_started: "Загрузка {0}. Ход установки виден на экране часов.",
+    log_title: "Лог устройства", log_filter: "Уровни", log_all: "Все уровни", log_e: "Ошибки", log_ew: "Ошибки и предупреждения", log_ewi: "Без отладки",
+    log_search: "Фильтр по тексту…", log_pause: "Пауза", log_resume: "Продолжить", log_clear: "Очистить", log_save: "Скачать", log_follow: "Следить за новыми строками",
+    log_level: "Уровень логов на устройстве", log_tag: "Тег (* = все)", apply: "Применить", log_level_set: "Уровень логов {0}: {1}.",
+    log_hint: "Последние 12 КБ вывода с момента запуска часов. После перезапуска уровень снова info.",
+    log_lines: "строк: {0}", log_dropped: "старые строки перезаписаны", log_paused: "на паузе",
+    console_title: "Консоль API", console_method: "Метод", console_path: "Путь", console_body: "Тело JSON", console_send: "Отправить запрос",
+    raw_title: "Сырое состояние", raw_hint: "GET /api/state, обновляется каждые 5 секунд.",
     footer: "{0} · прошивка {1} · {2}", units: ["д", "ч", "мин"],
   },
 };
@@ -798,7 +923,7 @@ function showBlob(img, blob) {
 
 
 /* ===================== tabs ===================== */
-const TABS = ["overview", "display", "network", "system"];
+const TABS = ["overview", "display", "network", "system", "dev"];
 function selectTab(name, focus = false) {
   $$("[role=tab]").forEach(b => {
     const on = b.dataset.tab === name;
@@ -809,6 +934,8 @@ function selectTab(name, focus = false) {
   $$("[role=tabpanel]").forEach(s => s.classList.toggle("active", s.id === "tab-" + name));
   if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
   if (name === "display") schedulePreview();
+  if (name === "dev") { pollLogs(); renderRaw(); }
+  if (name === "system") refreshUpdate();
 }
 $$("[role=tab]").forEach(b => {
   b.addEventListener("click", () => selectTab(b.dataset.tab));
@@ -948,6 +1075,8 @@ async function refreshState() {
   try {
     state = await api("/api/state");
     renderState();
+    renderRaw();
+    if (upd) renderUpdate();
   } catch (e) {
     $("#footer").textContent = t("offline");
   }
@@ -1286,6 +1415,178 @@ $("#ota-form").addEventListener("submit", e => {
   xhr.send(file);
 });
 
+/* ===================== updates ===================== */
+let upd = null;
+
+function ago(sec) {
+  return sec < 60 ? t("just_now") : t("upd_ago", uptime(sec).trim());
+}
+
+function renderUpdate() {
+  if (!upd) return;
+  const online = state && state.wifi.connected;
+  kv("#upd-kv", [
+    [t("k_latest"), upd.checked
+      ? esc(upd.latest) + (upd.available ? `<span class="badge">${t("upd_new")}</span>` : ` <span class="muted">${t("upd_uptodate")}</span>`)
+      : t("upd_never")],
+    upd.checked_ago_s !== null && [t("k_checked"), ago(upd.checked_ago_s)],
+  ]);
+  $("#upd-notes-box").hidden = !upd.notes;
+  $("#upd-notes").textContent = upd.notes;
+
+  const busy = upd.state !== "idle";
+  const inst = $("#upd-install");
+  inst.hidden = !upd.available;
+  inst.textContent = upd.state === "installing" ? t("upd_installing", upd.progress) : t("upd_install", upd.latest);
+  inst.toggleAttribute("aria-busy", busy);
+  const chk = $("#upd-check");
+  chk.textContent = upd.state === "checking" ? t("upd_checking") : t("upd_check");
+  chk.toggleAttribute("aria-busy", busy);
+  chk.disabled = !online;
+
+  $("#upd-auto-check").checked = upd.auto_check;
+  $("#upd-auto-install").checked = upd.auto_install;
+  if (upd.error) setStatus("upd-status", t("error", upd.error), true);
+  else if (!online) setStatus("upd-status", t("upd_offline"));
+  else if ($("#upd-status").classList.contains("err")) setStatus("upd-status", "");
+}
+
+async function refreshUpdate() {
+  try { upd = await api("/api/update"); renderUpdate(); } catch (e) { /* offline */ }
+  /* poll faster while the clock is talking to GitHub */
+  if (upd && upd.state !== "idle") setTimeout(refreshUpdate, 1500);
+}
+
+$("#upd-check").addEventListener("click", e => run("upd-status", async () => {
+  await api("/api/update/check", { method: "POST" });
+  setStatus("upd-status", "");
+  setTimeout(refreshUpdate, 500);
+}, e.currentTarget));
+
+$("#upd-install").addEventListener("click", async e => {
+  const btn = e.currentTarget;
+  if (!await ask(t("upd_confirm", upd.latest), btn.textContent)) return;
+  run("upd-status", async () => {
+    await api("/api/update/install", { method: "POST" });
+    setStatus("upd-status", t("upd_started", upd.latest));
+    setTimeout(refreshUpdate, 1000);
+    waitForReboot(s => setStatus("upd-status", t("ota_back", s.device.version)));
+  }, btn);
+});
+
+function saveUpdatePrefs(e) {
+  const check = $("#upd-auto-check"), auto = $("#upd-auto-install");
+  if (e.target === auto && auto.checked) check.checked = true; /* installing needs checking */
+  if (e.target === check && !check.checked) auto.checked = false;
+  run("upd-status", async () => {
+    config = await api("/api/config", { method: "POST", json: { update: { check: check.checked, auto: auto.checked } } });
+    setStatus("upd-status", t("saved"));
+    refreshUpdate();
+  });
+}
+$("#upd-auto-check").addEventListener("change", saveUpdatePrefs);
+$("#upd-auto-install").addEventListener("change", saveUpdatePrefs);
+
+/* ===================== developer tools ===================== */
+const LOG_MAX_LINES = 3000;
+let logPos = 0, logLines = [], logPartial = "", logPaused = false, logDropped = false, logTimer = null;
+
+const ANSI = /\x1b\[[0-9;]*m/g;
+const logLevel = line => (/^([EWIDV]) \(/.exec(line) || [, ""])[1];
+const reEscape = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+function renderLog() {
+  const filter = $("#log-filter").value;
+  const q = $("#log-search").value.trim().toLowerCase();
+  const el = $("#log");
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  const shown = logLines.filter(l => (!filter || filter.includes(logLevel(l))) && (!q || l.toLowerCase().includes(q)));
+  const hl = q ? new RegExp(reEscape(esc(q)), "gi") : null;
+  el.innerHTML = shown.map(l => {
+    let h = esc(l);
+    if (hl) h = h.replace(hl, m => `<mark>${m}</mark>`);
+    return `<span class="${logLevel(l)}">${h}</span>`;
+  }).join("\n");
+  if ($("#log-follow").checked && atBottom) el.scrollTop = el.scrollHeight;
+  const info = [t("log_lines", shown.length)];
+  if (logDropped) info.push(t("log_dropped"));
+  if (logPaused) info.push(t("log_paused"));
+  $("#log-info").textContent = info.join(" · ");
+}
+
+async function pollLogs() {
+  clearTimeout(logTimer);
+  if (!$("#tab-dev").classList.contains("active") || document.hidden) return;
+  if (!logPaused) {
+    try {
+      const r = await api(`/api/logs?since=${logPos}`);
+      if (r.dropped && logPos !== 0) logDropped = true;
+      logPos = r.next;
+      if (r.text) {
+        const parts = (logPartial + r.text.replace(ANSI, "")).split("\n");
+        logPartial = parts.pop();
+        logLines.push(...parts.filter(l => l.trim() !== ""));
+        if (logLines.length > LOG_MAX_LINES) logLines.splice(0, logLines.length - LOG_MAX_LINES);
+      }
+      renderLog();
+    } catch (e) { /* offline: keep polling */ }
+  }
+  logTimer = setTimeout(pollLogs, 2000);
+}
+
+$("#log-filter").addEventListener("change", renderLog);
+$("#log-search").addEventListener("input", renderLog);
+$("#log-follow").addEventListener("change", e => { if (e.target.checked) $("#log").scrollTop = $("#log").scrollHeight; });
+$("#log-pause").addEventListener("click", e => {
+  logPaused = !logPaused;
+  e.currentTarget.setAttribute("aria-pressed", logPaused);
+  e.currentTarget.textContent = t(logPaused ? "log_resume" : "log_pause");
+  renderLog();
+  if (!logPaused) pollLogs();
+});
+$("#log-clear").addEventListener("click", () => { logLines = []; logDropped = false; renderLog(); });
+$("#log-save").addEventListener("click", () => {
+  const blob = new Blob([logLines.join("\n") + "\n"], { type: "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${state ? state.device.hostname : "eink-clock"}-${new Date().toISOString().slice(0, 19).replace(/:/g, "")}.log`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$("#log-level-set").addEventListener("click", e => {
+  const level = $("#log-level").value, tag = $("#log-tag").value.trim() || "*";
+  run("log-status", async () => {
+    await api("/api/log-level", { method: "POST", json: { level, tag } });
+    setStatus("log-status", t("log_level_set", tag, level));
+  }, e.currentTarget);
+});
+
+function renderRaw() {
+  if (state && $("#tab-dev").classList.contains("active")) $("#raw-state").textContent = JSON.stringify(state, null, 2);
+}
+
+$("#console-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const method = $("#console-method").value, path = $("#console-path").value.trim(), body = $("#console-body").value.trim();
+  run("console-status", async () => {
+    const init = { method };
+    if (method !== "GET" && body) {
+      JSON.parse(body); /* throws a readable error on bad JSON */
+      init.body = body;
+      init.headers = { "Content-Type": "application/json" };
+    }
+    const t0 = performance.now();
+    const r = await fetch(path, init);
+    const ms = Math.round(performance.now() - t0);
+    const type = r.headers.get("Content-Type") || "";
+    setStatus("console-status", `${r.status} ${r.statusText} · ${ms} ms · ${type || "—"}`, !r.ok);
+    const out = $("#console-out");
+    if (type.includes("json")) out.textContent = JSON.stringify(await r.json(), null, 2);
+    else if (type.startsWith("text")) out.textContent = await r.text();
+    else out.textContent = `${(await r.blob()).size} bytes`;
+  }, e.submitter);
+});
+
 /* ===================== boot ===================== */
 $$("[data-lang]").forEach(b => b.addEventListener("click", () => {
   lang = b.dataset.lang;
@@ -1293,6 +1594,7 @@ $$("[data-lang]").forEach(b => b.addEventListener("click", () => {
   applyI18n();
   if (state) renderState();
   if (config) { fillMqttForm(); renderLayouts(); renderMetrics(); renderZones(); }
+  renderUpdate(); renderLog();
 }));
 $$("[data-theme-btn]").forEach(b => b.addEventListener("click", () => {
   theme = b.dataset.themeBtn;
@@ -1317,7 +1619,8 @@ async function init() {
   refreshScreen();
   setInterval(refreshState, 5000);
   setInterval(refreshScreen, 15000);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) { refreshState(); refreshScreen(); } });
+  setInterval(() => { if ($("#tab-system").classList.contains("active")) refreshUpdate(); }, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { refreshState(); refreshScreen(); pollLogs(); } });
 }
 init();
 </script>

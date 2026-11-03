@@ -15,12 +15,14 @@
 #include "app_config.h"
 #include "app_state.h"
 #include "boot_guard.h"
+#include "log_capture.h"
 #include "epd_ssd1680.h"
 #include "mqtt_ha.h"
 #include "net_time.h"
 #include "sensors.h"
 #include "settings_store.h"
 #include "ui.h"
+#include "updater.h"
 #include "web_server.h"
 #include "wifi_mgr.h"
 
@@ -140,6 +142,7 @@ static screen_t render(const settings_t *s, const sensor_data_t *shown_data)
 
 void app_main(void)
 {
+    log_capture_start();
     app_state_init();
     ESP_ERROR_CHECK(settings_store_init());
 
@@ -176,6 +179,7 @@ void app_main(void)
 
     ESP_ERROR_CHECK(wifi_mgr_start());
     ESP_ERROR_CHECK(web_server_start());
+    updater_start();
 
     screen_t shown_screen = SCREEN_NONE;
     int partials_since_full = 0;
