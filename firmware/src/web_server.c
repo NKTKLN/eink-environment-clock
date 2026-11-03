@@ -16,6 +16,8 @@
 #include "app_state.h"
 #include "bmp.h"
 #include "epd_canvas.h"
+#include "diag.h"
+#include "http_guard.h"
 #include "log_capture.h"
 #include "mqtt_ha.h"
 #include "net_time.h"
@@ -135,6 +137,42 @@ static const char *reset_reason_name(esp_reset_reason_t r)
     }
 }
 
+/* Rejects requests from other web sites and through public DNS names
+ * (see http_guard.h). Returns false after sending the 403. */
+static bool request_allowed(httpd_req_t *req, bool changes_state)
+{
+    char host[96] = "";
+    char origin[128] = "";
+    httpd_req_get_hdr_value_str(req, "Host", host, sizeof(host));
+    bool has_origin =
+        httpd_req_get_hdr_value_str(req, "Origin", origin, sizeof(origin)) == ESP_OK;
+
+    const char *why = NULL;
+    if (!http_host_allowed(host)) {
+        why = "requests through this host name are not accepted";
+    } else if (changes_state && has_origin && !http_origin_allowed(origin, host)) {
+        why = "changes are accepted only from the clock's own page";
+    }
+    if (why == NULL) {
+        return true;
+    }
+    ESP_LOGW(TAG, "rejected %s %s (host \"%s\", origin \"%s\")",
+             http_method_str(req->method), req->uri, host, origin);
+    send_error(req, "403 Forbidden", why);
+    return false;
+}
+
+#define ALLOW_READ(req)                    \
+    do {                                   \
+        if (!request_allowed((req), false)) \
+            return ESP_OK;                 \
+    } while (0)
+#define ALLOW_WRITE(req)                  \
+    do {                                  \
+        if (!request_allowed((req), true)) \
+            return ESP_OK;                \
+    } while (0)
+
 /* ===================================================== */
 /* Static page and captive portal                        */
 /* ===================================================== */
@@ -190,8 +228,8 @@ static esp_err_t fallback_get(httpd_req_t *req)
 static esp_err_t options_any(httpd_req_t *req)
 {
     cors(req);
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Methods",
-                       "GET, POST, DELETE, OPTIONS");
+    /* Other sites may read the API, not change anything. */
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "GET, OPTIONS");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "Content-Type");
     httpd_resp_set_status(req, "204 No Content");
     return httpd_resp_send(req, NULL, 0);
@@ -203,6 +241,7 @@ static esp_err_t options_any(httpd_req_t *req)
 
 static esp_err_t state_get(httpd_req_t *req)
 {
+    ALLOW_READ(req);
     settings_t s;
     settings_get(&s);
     sensor_data_t d;
@@ -232,6 +271,7 @@ static esp_err_t state_get(httpd_req_t *req)
     cJSON_AddStringToObject(dev, "mac", macs);
     const esp_partition_t *part = esp_ota_get_running_partition();
     cJSON_AddStringToObject(dev, "partition", part ? part->label : "");
+    diag_to_json(dev);
 
     cJSON *sn = cJSON_AddObjectToObject(root, "sensors");
     add_num_or_null(sn, "temperature_c", d.temperature_c);
@@ -300,6 +340,7 @@ static esp_err_t state_get(httpd_req_t *req)
 
 static esp_err_t config_get(httpd_req_t *req)
 {
+    ALLOW_READ(req);
     settings_t s;
     settings_get(&s);
     return send_json(req, settings_to_json(&s, false));
@@ -307,6 +348,7 @@ static esp_err_t config_get(httpd_req_t *req)
 
 static esp_err_t config_post(httpd_req_t *req)
 {
+    ALLOW_WRITE(req);
     cJSON *json = read_json(req);
     if (!cJSON_IsObject(json)) {
         cJSON_Delete(json);
@@ -344,6 +386,7 @@ static esp_err_t send_bmp(httpd_req_t *req, const uint8_t *fb)
 
 static esp_err_t screen_get(httpd_req_t *req)
 {
+    ALLOW_READ(req);
     uint8_t *fb = malloc(EPD_FRAMEBUFFER_SIZE);
     if (fb == NULL) {
         return httpd_resp_send_500(req);
@@ -359,6 +402,7 @@ static esp_err_t screen_get(httpd_req_t *req)
  *  "screen": "clock" | "setup"} */
 static esp_err_t preview_post(httpd_req_t *req)
 {
+    ALLOW_WRITE(req);
     cJSON *json = read_json(req);
     if (!cJSON_IsObject(json)) {
         cJSON_Delete(json);
@@ -408,6 +452,7 @@ static esp_err_t preview_post(httpd_req_t *req)
 
 static esp_err_t notify_post(httpd_req_t *req)
 {
+    ALLOW_WRITE(req);
     int len = 0;
     char *body = read_body(req, 2048, &len);
     if (body == NULL) {
@@ -431,6 +476,7 @@ static esp_err_t notify_post(httpd_req_t *req)
 
 static esp_err_t notify_delete(httpd_req_t *req)
 {
+    ALLOW_WRITE(req);
     app_notify_clear();
     app_request_redraw();
     mqtt_ha_notify_changed();
@@ -443,6 +489,7 @@ static esp_err_t notify_delete(httpd_req_t *req)
 
 static esp_err_t wifi_scan_get(httpd_req_t *req)
 {
+    ALLOW_WRITE(req);
     const int max = 20;
     wifi_ap_record_t *recs = calloc(max, sizeof(*recs));
     if (recs == NULL) {
@@ -479,6 +526,7 @@ static esp_err_t wifi_scan_get(httpd_req_t *req)
 
 static esp_err_t wifi_post(httpd_req_t *req)
 {
+    ALLOW_WRITE(req);
     cJSON *json = read_json(req);
     const cJSON *ssid = cJSON_GetObjectItem(json, "ssid");
     const cJSON *pass = cJSON_GetObjectItem(json, "password");
@@ -518,12 +566,14 @@ static esp_err_t wifi_post(httpd_req_t *req)
 
 static esp_err_t calibrate_post(httpd_req_t *req)
 {
+    ALLOW_WRITE(req);
     app_request_co2_calibration();
     return send_ok(req);
 }
 
 static esp_err_t reboot_post(httpd_req_t *req)
 {
+    ALLOW_WRITE(req);
     esp_err_t err = send_ok(req);
     app_restart_later(OVERLAY_RESTART, RESTART_DELAY_MS);
     return err;
@@ -531,6 +581,7 @@ static esp_err_t reboot_post(httpd_req_t *req)
 
 static esp_err_t forget_wifi_post(httpd_req_t *req)
 {
+    ALLOW_WRITE(req);
     settings_forget_network();
     esp_err_t err = send_ok(req);
     app_restart_later(OVERLAY_RESET, RESTART_DELAY_MS);
@@ -539,6 +590,7 @@ static esp_err_t forget_wifi_post(httpd_req_t *req)
 
 static esp_err_t factory_reset_post(httpd_req_t *req)
 {
+    ALLOW_WRITE(req);
     settings_factory_reset();
     esp_err_t err = send_ok(req);
     app_restart_later(OVERLAY_RESET, RESTART_DELAY_MS);
@@ -548,6 +600,7 @@ static esp_err_t factory_reset_post(httpd_req_t *req)
 /* Raw firmware.bin as the request body. */
 static esp_err_t ota_post(httpd_req_t *req)
 {
+    ALLOW_WRITE(req);
     const esp_partition_t *target = esp_ota_get_next_update_partition(NULL);
     if (target == NULL) {
         return send_error(req, "500 Internal Server Error",
@@ -630,6 +683,7 @@ static esp_err_t ota_post(httpd_req_t *req)
 
 static esp_err_t update_get(httpd_req_t *req)
 {
+    ALLOW_READ(req);
     update_status_t st;
     updater_get_status(&st);
     settings_t s;
@@ -659,6 +713,7 @@ static esp_err_t update_get(httpd_req_t *req)
 
 static esp_err_t update_check_post(httpd_req_t *req)
 {
+    ALLOW_WRITE(req);
     esp_err_t err = updater_request_check();
     if (err != ESP_OK) {
         return send_error(req, "409 Conflict",
@@ -669,6 +724,7 @@ static esp_err_t update_check_post(httpd_req_t *req)
 
 static esp_err_t update_install_post(httpd_req_t *req)
 {
+    ALLOW_WRITE(req);
     esp_err_t err = updater_request_install();
     if (err == ESP_ERR_NOT_FOUND) {
         return send_error(req, "409 Conflict", "no newer release found");
@@ -687,6 +743,7 @@ static esp_err_t update_install_post(httpd_req_t *req)
 /* GET /api/logs?since=N -> {"next": M, "dropped": bool, "text": "..."} */
 static esp_err_t logs_get(httpd_req_t *req)
 {
+    ALLOW_READ(req);
     uint32_t pos = 0;
     char query[48], value[16];
     if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
@@ -714,6 +771,7 @@ static esp_err_t logs_get(httpd_req_t *req)
 /* POST {"level": "none|error|warn|info|debug|verbose", "tag": "*"} */
 static esp_err_t log_level_post(httpd_req_t *req)
 {
+    ALLOW_WRITE(req);
     static const char *NAMES[] = { "none", "error", "warn", "info", "debug", "verbose" };
     cJSON *json = read_json(req);
     const char *level = cJSON_GetStringValue(cJSON_GetObjectItem(json, "level"));
