@@ -1,1 +1,1102 @@
-<!doctype html><title>stub</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>E-Ink Clock</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Cpath fill='%233f5f45' d='M10 2h4v1h-4zM2 3h3v1h-3zM9 3h5v1h-5zM2 4h5v1h-5zM8 4h6v1h-6zM2 5h6v1h-6zM9 5h5v1h-5zM2 6h6v1h-6zM10 6h3v1h-3zM3 7h6v1h-6zM10 7h1v1h-1zM4 8h5v1h-5zM6 9h3v1h-3zM7 10h2v1h-2zM7 11h2v1h-2zM7 12h2v1h-2zM7 13h2v1h-2z'/%3E%3C/svg%3E">
+<style>
+:root {
+  --ink: #14181a;
+  --paper: #ebe9e2;
+  --surface: #f4f3ed;
+  --sage: #d7ddcf;
+  --line: #cecec3;
+  --muted: #656960;
+  --moss: #3f5f45;
+  --moss-ink: #ebe9e2;
+  --alarm: #a85f24;
+  --screen: #f4f3ed;
+  --screen-ink: #14181a;
+  --sans: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+:root[data-theme="dark"] {
+  --ink: #e4e2da;
+  --paper: #121517;
+  --surface: #1a1e20;
+  --sage: #223027;
+  --line: #2d3336;
+  --muted: #959a90;
+  --moss: #8db594;
+  --moss-ink: #121517;
+  --alarm: #d68f52;
+  --screen: #d9d7cf;
+  --screen-ink: #14181a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #e4e2da;
+    --paper: #121517;
+    --surface: #1a1e20;
+    --sage: #223027;
+    --line: #2d3336;
+    --muted: #959a90;
+    --moss: #8db594;
+    --moss-ink: #121517;
+    --alarm: #d68f52;
+    --screen: #d9d7cf;
+    --screen-ink: #14181a;
+  }
+}
+* { box-sizing: border-box; }
+html { background: var(--paper); }
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--paper);
+  font: 15px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font: inherit; color: inherit; }
+a { color: var(--moss); }
+::selection { background: var(--moss); color: var(--moss-ink); }
+.mono, .eyebrow, .value, code, .tag { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.muted { color: var(--muted); }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+
+/* header */
+header { border-bottom: 1px solid var(--line); }
+.bar { display: flex; align-items: center; gap: 16px; min-height: 64px; }
+.brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 17px; margin-right: auto; min-width: 0; }
+.brand svg { width: 24px; height: 24px; color: var(--moss); flex-shrink: 0; }
+.brand span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.switch { display: inline-flex; border: 1px solid var(--line); }
+.switch button { border: 0; background: none; padding: 6px 10px; cursor: pointer; font: 12px var(--mono); letter-spacing: .08em; color: var(--muted); }
+.switch button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+nav { display: flex; gap: 4px; overflow-x: auto; }
+nav button { border: 0; background: none; padding: 14px 4px 12px; margin-right: 20px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; }
+nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--moss); }
+
+/* layout */
+main { padding: 28px 0 64px; }
+section[role="tabpanel"] { display: none; }
+section[role="tabpanel"].active { display: block; }
+.grid { display: grid; gap: 20px; }
+.cols { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
+@media (max-width: 820px) { .cols { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--line); padding: 20px; }
+.card h2 { font-size: 16px; margin: 0 0 16px; }
+.card h2 .eyebrow { display: block; margin-bottom: 4px; font-weight: 400; }
+.banner { border: 1px solid var(--moss); background: var(--sage); padding: 14px 18px; margin-bottom: 20px; }
+.banner.alarm { border-color: var(--alarm); }
+
+/* e-ink screen */
+.device { background: var(--ink); padding: 14px; display: inline-block; max-width: 100%; }
+:root[data-theme="dark"] .device { background: #050607; }
+.screen { display: block; width: 296px; height: 128px; image-rendering: pixelated; image-rendering: crisp-edges; background: var(--screen); }
+.device-wrap { text-align: center; }
+.device-note { margin-top: 10px; font-size: 12px; }
+
+/* readings */
+.readings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+@media (max-width: 640px) { .readings { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.reading { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 14px 16px; background: var(--surface); }
+.reading .value { font-size: 28px; line-height: 1.2; margin-top: 6px; }
+.reading .value small { font-size: 13px; color: var(--muted); margin-left: 4px; }
+.reading.alarm { background: var(--alarm); color: var(--paper); }
+.reading.alarm .eyebrow, .reading.alarm small { color: inherit; opacity: .85; }
+
+/* key-value rows */
+dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
+dl.kv dt { color: var(--muted); }
+dl.kv dd { margin: 0; font-family: var(--mono); font-size: 13px; word-break: break-all; }
+.dot { display: inline-block; width: 7px; height: 7px; margin-right: 8px; vertical-align: 1px; background: var(--muted); }
+.dot.ok { background: var(--moss); }
+.dot.bad { background: var(--alarm); }
+
+/* forms */
+.field { display: grid; gap: 6px; margin-bottom: 14px; }
+.field > span { font-size: 13px; color: var(--muted); }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+.row > .field { flex: 1 1 160px; }
+input[type=text], input[type=password], input[type=number], select {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--line); background: var(--paper); border-radius: 0; min-height: 42px;
+}
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--moss); outline-offset: 2px; }
+.check { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--moss); margin: 0; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 42px; padding: 10px 18px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); cursor: pointer; font-size: 14px; }
+.btn:hover { background: var(--moss); border-color: var(--moss); color: var(--moss-ink); }
+.btn.ghost { background: none; color: var(--ink); }
+.btn.ghost:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn.danger { background: none; color: var(--alarm); border-color: var(--alarm); }
+.btn.danger:hover { background: var(--alarm); color: var(--paper); }
+.btn:disabled { opacity: .5; cursor: progress; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.hint { font-size: 13px; color: var(--muted); margin: 6px 0 14px; }
+.status { font-size: 13px; min-height: 20px; margin-top: 10px; }
+.status.err { color: var(--alarm); }
+
+/* segmented layout picker */
+.layouts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
+@media (max-width: 520px) { .layouts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.layouts label { border: 1px solid var(--line); padding: 10px; cursor: pointer; display: grid; gap: 8px; background: var(--paper); }
+.layouts input { position: absolute; opacity: 0; pointer-events: none; }
+.layouts label:has(input:checked) { border-color: var(--moss); box-shadow: inset 0 0 0 1px var(--moss); }
+.layouts label:has(input:focus-visible) { outline: 2px solid var(--moss); outline-offset: 2px; }
+.layouts svg { width: 100%; height: auto; color: var(--ink); }
+.layouts b { font-weight: 400; font-size: 13px; }
+
+/* metric list */
+.metrics { list-style: none; margin: 0 0 16px; padding: 0; border: 1px solid var(--line); }
+.metrics li { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--paper); }
+.metrics li:last-child { border-bottom: 0; }
+.metrics li label { flex: 1; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.metrics li input { width: 18px; height: 18px; accent-color: var(--moss); }
+.metrics li.off label span { color: var(--muted); }
+.icon-btn { border: 1px solid var(--line); background: none; width: 32px; height: 32px; cursor: pointer; }
+.icon-btn:hover:not(:disabled) { border-color: var(--ink); }
+.icon-btn:disabled { opacity: .3; cursor: default; }
+
+/* networks */
+.nets { list-style: none; margin: 0 0 14px; padding: 0; border: 1px solid var(--line); max-height: 260px; overflow: auto; }
+.nets:empty { display: none; }
+.nets button { display: flex; width: 100%; gap: 12px; align-items: center; padding: 10px 12px; border: 0; border-bottom: 1px solid var(--line); background: var(--paper); cursor: pointer; text-align: left; }
+.nets li:last-child button { border-bottom: 0; }
+.nets button:hover { background: var(--sage); }
+.nets .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars { display: inline-flex; gap: 2px; align-items: end; height: 14px; }
+.bars i { width: 3px; background: var(--line); }
+.bars i.on { background: var(--moss); }
+.bars i:nth-child(1) { height: 4px; } .bars i:nth-child(2) { height: 7px; } .bars i:nth-child(3) { height: 10px; } .bars i:nth-child(4) { height: 14px; }
+
+progress { width: 100%; height: 10px; accent-color: var(--moss); }
+details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+pre { background: var(--paper); border: 1px solid var(--line); padding: 12px; overflow: auto; font-size: 12px; margin: 10px 0 0; }
+footer { border-top: 1px solid var(--line); padding: 18px 0 30px; font-size: 12px; color: var(--muted); }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap bar">
+    <div class="brand">
+      <svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M10 2h4v1h-4zM2 3h3v1h-3zM9 3h5v1h-5zM2 4h5v1h-5zM8 4h6v1h-6zM2 5h6v1h-6zM9 5h5v1h-5zM2 6h6v1h-6zM10 6h3v1h-3zM3 7h6v1h-6zM10 7h1v1h-1zM4 8h5v1h-5zM6 9h3v1h-3zM7 10h2v1h-2zM7 11h2v1h-2zM7 12h2v1h-2zM7 13h2v1h-2z"/></svg>
+      <span id="dev-name">E-Ink Clock</span>
+    </div>
+    <div class="switch" role="group" aria-label="Language">
+      <button type="button" data-lang="en">EN</button><button type="button" data-lang="ru">RU</button>
+    </div>
+    <div class="switch" role="group" aria-label="Theme">
+      <button type="button" data-theme-btn="auto" data-i18n-title="theme_auto">A</button><button type="button" data-theme-btn="light" data-i18n-title="theme_light">☀</button><button type="button" data-theme-btn="dark" data-i18n-title="theme_dark">☾</button>
+    </div>
+  </div>
+  <div class="wrap">
+    <nav role="tablist">
+      <button role="tab" data-tab="overview" data-i18n="tab_overview">Overview</button>
+      <button role="tab" data-tab="display" data-i18n="tab_display">Display</button>
+      <button role="tab" data-tab="network" data-i18n="tab_network">Network</button>
+      <button role="tab" data-tab="system" data-i18n="tab_system">System</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="setup-banner" class="banner" hidden></div>
+
+  <!-- ============ Overview ============ -->
+  <section role="tabpanel" id="tab-overview">
+    <div class="grid">
+      <div class="device-wrap">
+        <div class="device"><img id="screen" class="screen" alt="" width="592" height="256"></div>
+        <div class="device-note muted mono" id="screen-note"></div>
+      </div>
+
+      <div class="readings" id="readings"></div>
+
+      <div class="grid cols">
+        <div class="card">
+          <h2><span class="eyebrow" data-i18n="notify_eyebrow">On screen</span><span data-i18n="notify_title">Notification</span></h2>
+          <form id="notify-form">
+            <label class="field"><span data-i18n="notify_text">Text</span>
+              <input type="text" id="notify-text" maxlength="255" autocomplete="off" data-i18n-placeholder="notify_placeholder"></label>
+            <div class="row">
+              <label class="field"><span data-i18n="notify_ttl">Show for</span>
+                <select id="notify-ttl">
+                  <option value="0" data-i18n="ttl_forever">Until cleared</option>
+                  <option value="60" data-i18n="ttl_1m">1 minute</option>
+                  <option value="300" data-i18n="ttl_5m">5 minutes</option>
+                  <option value="900" data-i18n="ttl_15m">15 minutes</option>
+                  <option value="3600" data-i18n="ttl_1h">1 hour</option>
+                  <option value="28800" data-i18n="ttl_8h">8 hours</option>
+                  <option value="86400" data-i18n="ttl_24h">24 hours</option>
+                </select></label>
+            </div>
+            <label class="check"><input type="checkbox" id="notify-full"><span data-i18n="notify_full">Full screen</span></label>
+            <div class="actions">
+              <button class="btn" type="submit" data-i18n="notify_send">Show</button>
+              <button class="btn ghost" type="button" id="notify-clear" data-i18n="notify_clear">Clear</button>
+            </div>
+            <div class="status" id="notify-status"></div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2><span class="eyebrow" data-i18n="status_eyebrow">Status</span><span data-i18n="status_title">Device</span></h2>
+          <dl class="kv" id="overview-kv"></dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Display ============ -->
+  <section role="tabpanel" id="tab-display">
+    <div class="grid cols">
+      <div class="card">
+        <h2><span class="eyebrow" data-i18n="layout_eyebrow">Layout</span><span data-i18n="layout_title">What the screen shows</span></h2>
+        <div class="layouts" id="layouts"></div>
+
+        <div class="eyebrow" style="margin-bottom:8px" data-i18n="metrics_title">Readings and order</div>
+        <ul class="metrics" id="metrics"></ul>
+
+        <div class="row">
+          <label class="field"><span data-i18n="date_format">Date</span>
+            <select id="f-date_format">
+              <option value="dmy_text">3 Nov 2026</option>
+              <option value="weekday">Tue, 3 Nov</option>
+              <option value="dmy_dots">03.11.2026</option>
+              <option value="iso">2026-11-03</option>
+            </select></label>
+          <label class="field"><span data-i18n="screen_lang">Screen language</span>
+            <select id="f-language"><option value="en">English</option><option value="ru">Русский</option></select></label>
+        </div>
+        <label class="check"><input type="checkbox" id="f-show_date"><span data-i18n="show_date">Show date</span></label>
+        <label class="check"><input type="checkbox" id="f-hour24"><span data-i18n="hour24">24-hour time</span></label>
+
+        <div class="row">
+          <label class="field"><span data-i18n="timezone">Time zone</span>
+            <select id="f-timezone"></select></label>
+        </div>
+        <label class="field" id="tz-custom-wrap" hidden><span data-i18n="tz_custom">POSIX TZ string</span>
+          <input type="text" id="f-tz_posix" class="mono" placeholder="CET-1CEST,M3.5.0,M10.5.0/3"></label>
+
+        <div class="row">
+          <label class="field"><span data-i18n="temp_unit">Temperature</span>
+            <select id="f-temp_unit"><option value="c">°C</option><option value="f">°F</option></select></label>
+          <label class="field"><span data-i18n="pressure_unit">Pressure</span>
+            <select id="f-pressure_unit"><option value="hpa" data-i18n="u_hpa">hPa</option><option value="mmhg" data-i18n="u_mmhg">mmHg</option></select></label>
+        </div>
+        <label class="check"><input type="checkbox" id="f-invert"><span data-i18n="invert">Invert colors (white on black)</span></label>
+        <label class="check"><input type="checkbox" id="f-rotate180"><span data-i18n="rotate">Rotate 180°</span></label>
+
+        <div class="actions">
+          <button class="btn" type="button" id="display-save" data-i18n="save">Save</button>
+          <button class="btn ghost" type="button" id="display-reset" data-i18n="revert">Revert</button>
+        </div>
+        <div class="status" id="display-status"></div>
+      </div>
+
+      <div class="grid" style="position:sticky;top:12px">
+        <div class="card">
+          <h2><span class="eyebrow" data-i18n="preview_eyebrow">Preview</span><span data-i18n="preview_title">Before saving</span></h2>
+          <div class="device-wrap"><div class="device"><img id="preview" class="screen" alt="" width="592" height="256"></div></div>
+          <p class="hint" data-i18n="preview_hint">Rendered by the clock itself with the current readings. Nothing changes on the panel until you save.</p>
+          <label class="check"><input type="checkbox" id="pv-notice"><span data-i18n="preview_notice">Preview with a notification</span></label>
+          <label class="check"><input type="checkbox" id="pv-full"><span data-i18n="preview_full">… full screen</span></label>
+          <label class="check"><input type="checkbox" id="pv-setup"><span data-i18n="preview_setup">Show the Wi-Fi setup screen</span></label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Network ============ -->
+  <section role="tabpanel" id="tab-network">
+    <div class="grid cols">
+      <div class="card">
+        <h2><span class="eyebrow">Wi-Fi</span><span data-i18n="wifi_title">Network connection</span></h2>
+        <dl class="kv" id="wifi-kv" style="margin-bottom:18px"></dl>
+        <div class="actions" style="margin-bottom:12px">
+          <button class="btn ghost" type="button" id="wifi-scan" data-i18n="wifi_scan">Find networks</button>
+        </div>
+        <ul class="nets" id="nets"></ul>
+        <form id="wifi-form">
+          <label class="field"><span data-i18n="wifi_ssid">Network name</span>
+            <input type="text" id="wifi-ssid" maxlength="32" autocomplete="off" required></label>
+          <label class="field"><span data-i18n="wifi_pass">Password</span>
+            <input type="password" id="wifi-pass" maxlength="64" autocomplete="off"></label>
+          <label class="check"><input type="checkbox" id="wifi-show"><span data-i18n="show_password">Show password</span></label>
+          <div class="actions"><button class="btn" type="submit" data-i18n="wifi_connect">Connect</button></div>
+          <div class="status" id="wifi-status"></div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2><span class="eyebrow">MQTT · Home Assistant</span><span data-i18n="mqtt_title">Broker</span></h2>
+        <dl class="kv" id="mqtt-kv" style="margin-bottom:18px"></dl>
+        <form id="mqtt-form">
+          <label class="check"><input type="checkbox" id="m-enabled"><span data-i18n="mqtt_enabled">Publish to MQTT</span></label>
+          <div class="row">
+            <label class="field" style="flex:3 1 200px"><span data-i18n="mqtt_host">Broker address</span>
+              <input type="text" id="m-host" placeholder="homeassistant.local" autocomplete="off"></label>
+            <label class="field" style="flex:1 1 90px"><span data-i18n="mqtt_port">Port</span>
+              <input type="number" id="m-port" min="1" max="65535"></label>
+          </div>
+          <div class="row">
+            <label class="field"><span data-i18n="mqtt_user">User</span>
+              <input type="text" id="m-username" autocomplete="off"></label>
+            <label class="field"><span data-i18n="mqtt_pass">Password</span>
+              <input type="password" id="m-password" autocomplete="new-password"></label>
+          </div>
+          <label class="check"><input type="checkbox" id="m-discovery"><span data-i18n="mqtt_discovery">Home Assistant discovery</span></label>
+          <details>
+            <summary data-i18n="advanced">Advanced</summary>
+            <div class="row" style="margin-top:12px">
+              <label class="field"><span data-i18n="mqtt_prefix">Topic prefix</span>
+                <input type="text" id="m-prefix" class="mono" autocomplete="off"></label>
+              <label class="field"><span data-i18n="mqtt_disc_prefix">Discovery prefix</span>
+                <input type="text" id="m-discovery_prefix" class="mono" autocomplete="off"></label>
+            </div>
+          </details>
+          <div class="actions" style="margin-top:14px"><button class="btn" type="submit" data-i18n="save">Save</button></div>
+          <div class="status" id="mqtt-status"></div>
+        </form>
+        <details style="margin-top:14px">
+          <summary data-i18n="mqtt_topics">Topics for automations</summary>
+          <pre id="mqtt-topics"></pre>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ System ============ -->
+  <section role="tabpanel" id="tab-system">
+    <div class="grid cols">
+      <div class="grid">
+        <div class="card">
+          <h2><span class="eyebrow" data-i18n="device_eyebrow">Device</span><span data-i18n="device_title">Name and sensors</span></h2>
+          <form id="device-form">
+            <label class="field"><span data-i18n="dev_name">Name (also in Home Assistant)</span>
+              <input type="text" id="d-name" maxlength="31"></label>
+            <div class="row">
+              <label class="field"><span data-i18n="co2_threshold">CO₂ alert above, ppm</span>
+                <input type="number" id="d-co2_threshold_ppm" min="400" max="5000" step="50"></label>
+              <label class="field"><span data-i18n="temp_offset">Temperature correction, °C</span>
+                <input type="number" id="d-temp_offset_c" min="-10" max="10" step="0.1"></label>
+            </div>
+            <label class="check"><input type="checkbox" id="d-co2_led"><span data-i18n="co2_led">Blink the LED above the threshold</span></label>
+            <div class="actions"><button class="btn" type="submit" data-i18n="save">Save</button></div>
+            <div class="status" id="device-status"></div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2><span class="eyebrow">CO₂</span><span data-i18n="cal_title">Calibration</span></h2>
+          <p class="hint" data-i18n="cal_hint">Sets the current reading as 400 ppm. Keep the clock outdoors or by an open window for at least 20 minutes first.</p>
+          <button class="btn ghost" type="button" id="cal-btn" data-i18n="cal_btn">Calibrate to 400 ppm</button>
+          <div class="status" id="cal-status"></div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2><span class="eyebrow" data-i18n="fw_eyebrow">Firmware</span><span data-i18n="fw_title">Update</span></h2>
+          <dl class="kv" id="fw-kv" style="margin-bottom:16px"></dl>
+          <form id="ota-form">
+            <label class="field"><span data-i18n="fw_file">firmware.bin</span>
+              <input type="file" id="ota-file" accept=".bin,application/octet-stream" required></label>
+            <progress id="ota-progress" max="100" value="0" hidden></progress>
+            <div class="actions"><button class="btn" type="submit" data-i18n="fw_upload">Upload and install</button></div>
+            <div class="status" id="ota-status"></div>
+          </form>
+          <p class="hint" data-i18n="fw_hint">If the new firmware fails to start, the clock goes back to the current one.</p>
+        </div>
+
+        <div class="card">
+          <h2><span class="eyebrow" data-i18n="maint_eyebrow">Maintenance</span><span data-i18n="maint_title">Restart and reset</span></h2>
+          <div class="actions">
+            <button class="btn ghost" type="button" id="btn-reboot" data-i18n="reboot">Restart</button>
+            <button class="btn danger" type="button" id="btn-forget" data-i18n="forget">Forget Wi-Fi</button>
+            <button class="btn danger" type="button" id="btn-factory" data-i18n="factory">Factory reset</button>
+          </div>
+          <p class="hint" data-i18n="reset_hint">Without the web page: plug the clock in three times in a row, unplugging it within five seconds each time. Wi-Fi and MQTT settings are cleared.</p>
+          <div class="status" id="maint-status"></div>
+        </div>
+
+        <div class="card">
+          <h2><span class="eyebrow">API</span><span data-i18n="api_title">Local HTTP API</span></h2>
+          <pre>GET    /api/state
+GET    /api/config      POST /api/config
+GET    /api/screen.bmp  POST /api/preview
+POST   /api/notify      DELETE /api/notify
+GET    /api/wifi/scan   POST /api/wifi
+POST   /api/co2/calibrate
+POST   /api/ota
+POST   /api/system/{reboot,forget-wifi,factory-reset}</pre>
+          <pre id="api-example"></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer><div class="wrap mono" id="footer"></div></footer>
+
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+
+/* ===================== i18n ===================== */
+const I18N = {
+  en: {
+    tab_overview: "Overview", tab_display: "Display", tab_network: "Network", tab_system: "System",
+    theme_auto: "Theme: system", theme_light: "Theme: light", theme_dark: "Theme: dark",
+    temperature: "Temperature", humidity: "Humidity", pressure: "Pressure", co2: "CO₂",
+    notify_eyebrow: "On screen", notify_title: "Notification", notify_text: "Text",
+    notify_placeholder: "Meeting until 15:00", notify_ttl: "Show for", ttl_forever: "Until cleared",
+    ttl_1m: "1 minute", ttl_5m: "5 minutes", ttl_15m: "15 minutes", ttl_1h: "1 hour", ttl_8h: "8 hours", ttl_24h: "24 hours",
+    notify_full: "Full screen", notify_send: "Show", notify_clear: "Clear",
+    notify_sent: "Sent to the screen.", notify_cleared: "Cleared.",
+    status_eyebrow: "Status", status_title: "Device",
+    k_time: "Time", k_wifi: "Wi-Fi", k_mqtt: "MQTT", k_uptime: "Uptime", k_notice: "Notification",
+    connected: "connected", disconnected: "not connected", off: "off", time_unset: "not set",
+    screen_note: "Panel contents, updated every 15 s",
+    layout_eyebrow: "Layout", layout_title: "What the screen shows",
+    l_classic: "Clock + readings", l_clock: "Clock", l_co2: "CO₂", l_sensors: "Readings",
+    metrics_title: "Readings and order", up: "Move up", down: "Move down",
+    date_format: "Date", screen_lang: "Screen language", show_date: "Show date", hour24: "24-hour time",
+    timezone: "Time zone", tz_custom: "POSIX TZ string", tz_other: "Other (POSIX string)…",
+    temp_unit: "Temperature", pressure_unit: "Pressure", u_hpa: "hPa", u_mmhg: "mmHg",
+    invert: "Invert colors (white on black)", rotate: "Rotate 180°",
+    save: "Save", revert: "Revert", saved: "Saved.",
+    preview_eyebrow: "Preview", preview_title: "Before saving",
+    preview_hint: "Rendered by the clock itself with the current readings. Nothing changes on the panel until you save.",
+    preview_notice: "Preview with a notification", preview_full: "… full screen", preview_setup: "Show the Wi-Fi setup screen",
+    preview_sample: "Meeting until 15:00",
+    wifi_title: "Network connection", wifi_scan: "Find networks", scanning: "Searching…", no_networks: "No networks found.",
+    wifi_ssid: "Network name", wifi_pass: "Password", show_password: "Show password", wifi_connect: "Connect",
+    k_network: "Network", k_ip: "Address", k_signal: "Signal", k_hostname: "Name in the network", k_ap: "Setup access point",
+    ap_on: "on", ap_off: "off",
+    wifi_connecting: "Connecting to “{0}”…", wifi_ok: "Connected. Open the clock at {0}. This access point turns off in a minute.",
+    wifi_fail: "Could not connect yet. Check the password; the clock keeps trying.",
+    keep_pass: "Leave empty to keep the saved password",
+    setup_banner: "Setup mode. Choose your Wi-Fi network below. After connecting, the clock shows its new address on the screen.",
+    setup_banner_failed: "Cannot reach “{0}”. The clock keeps trying; you can enter another network here.",
+    mqtt_title: "Broker", mqtt_enabled: "Publish to MQTT", mqtt_host: "Broker address", mqtt_port: "Port",
+    mqtt_user: "User", mqtt_pass: "Password", mqtt_discovery: "Home Assistant discovery", advanced: "Advanced",
+    mqtt_prefix: "Topic prefix", mqtt_disc_prefix: "Discovery prefix", mqtt_topics: "Topics for automations",
+    k_broker: "Broker", k_topic: "Topics", pass_set: "saved, leave empty to keep",
+    device_eyebrow: "Device", device_title: "Name and sensors", dev_name: "Name (also in Home Assistant)",
+    co2_threshold: "CO₂ alert above, ppm", temp_offset: "Temperature correction, °C", co2_led: "Blink the LED above the threshold",
+    cal_title: "Calibration", cal_hint: "Sets the current reading as 400 ppm. Keep the clock outdoors or by an open window for at least 20 minutes first.",
+    cal_btn: "Calibrate to 400 ppm", cal_confirm: "Has the clock been in fresh air for 20 minutes? The current reading becomes 400 ppm.", cal_done: "Calibration command sent.",
+    fw_eyebrow: "Firmware", fw_title: "Update", fw_file: "firmware.bin", fw_upload: "Upload and install",
+    fw_hint: "If the new firmware fails to start, the clock goes back to the current one.",
+    k_version: "Version", k_partition: "Partition", k_idf: "ESP-IDF", k_heap: "Free memory", k_reset: "Last reset", k_mac: "MAC",
+    ota_uploading: "Uploading… {0}%", ota_done: "Installed. Restarting…", ota_back: "The clock is back with version {0}.",
+    maint_eyebrow: "Maintenance", maint_title: "Restart and reset", reboot: "Restart", forget: "Forget Wi-Fi", factory: "Factory reset",
+    reset_hint: "Without the web page: plug the clock in three times in a row, unplugging it within five seconds each time. Wi-Fi and MQTT settings are cleared.",
+    confirm_reboot: "Restart the clock?", confirm_forget: "Forget the Wi-Fi network and MQTT settings? The clock will open its setup access point.",
+    confirm_factory: "Erase all settings?", restarting: "Restarting…",
+    api_title: "Local HTTP API", offline: "No connection to the clock", error: "Error: {0}",
+    footer: "{0} · firmware {1} · {2}",
+  },
+  ru: {
+    tab_overview: "Обзор", tab_display: "Экран", tab_network: "Сеть", tab_system: "Система",
+    theme_auto: "Тема: как в системе", theme_light: "Тема: светлая", theme_dark: "Тема: тёмная",
+    temperature: "Температура", humidity: "Влажность", pressure: "Давление", co2: "CO₂",
+    notify_eyebrow: "На экране", notify_title: "Уведомление", notify_text: "Текст",
+    notify_placeholder: "Совещание до 15:00", notify_ttl: "Показывать", ttl_forever: "Пока не уберут",
+    ttl_1m: "1 минуту", ttl_5m: "5 минут", ttl_15m: "15 минут", ttl_1h: "1 час", ttl_8h: "8 часов", ttl_24h: "24 часа",
+    notify_full: "На весь экран", notify_send: "Показать", notify_clear: "Убрать",
+    notify_sent: "Отправлено на экран.", notify_cleared: "Убрано.",
+    status_eyebrow: "Состояние", status_title: "Прибор",
+    k_time: "Время", k_wifi: "Wi-Fi", k_mqtt: "MQTT", k_uptime: "Работает", k_notice: "Уведомление",
+    connected: "подключено", disconnected: "нет связи", off: "выключено", time_unset: "не задано",
+    screen_note: "Изображение на панели, обновляется раз в 15 с",
+    layout_eyebrow: "Раскладка", layout_title: "Что показывает экран",
+    l_classic: "Часы и показания", l_clock: "Часы", l_co2: "CO₂", l_sensors: "Показания",
+    metrics_title: "Показания и порядок", up: "Выше", down: "Ниже",
+    date_format: "Дата", screen_lang: "Язык экрана", show_date: "Показывать дату", hour24: "24-часовой формат",
+    timezone: "Часовой пояс", tz_custom: "Строка POSIX TZ", tz_other: "Другой (строка POSIX)…",
+    temp_unit: "Температура", pressure_unit: "Давление", u_hpa: "гПа", u_mmhg: "мм рт. ст.",
+    invert: "Инвертировать (белое на чёрном)", rotate: "Повернуть на 180°",
+    save: "Сохранить", revert: "Отменить", saved: "Сохранено.",
+    preview_eyebrow: "Превью", preview_title: "До сохранения",
+    preview_hint: "Кадр рисуют сами часы с текущими показаниями. Панель не меняется, пока настройки не сохранены.",
+    preview_notice: "Показать с уведомлением", preview_full: "… на весь экран", preview_setup: "Показать экран настройки Wi-Fi",
+    preview_sample: "Совещание до 15:00",
+    wifi_title: "Подключение к сети", wifi_scan: "Найти сети", scanning: "Поиск…", no_networks: "Сети не найдены.",
+    wifi_ssid: "Имя сети", wifi_pass: "Пароль", show_password: "Показать пароль", wifi_connect: "Подключить",
+    k_network: "Сеть", k_ip: "Адрес", k_signal: "Сигнал", k_hostname: "Имя в сети", k_ap: "Точка настройки",
+    ap_on: "включена", ap_off: "выключена",
+    wifi_connecting: "Подключение к «{0}»…", wifi_ok: "Подключено. Часы доступны по адресу {0}. Точка настройки выключится через минуту.",
+    wifi_fail: "Пока не удалось подключиться. Проверьте пароль; часы продолжают попытки.",
+    keep_pass: "Оставьте пустым, чтобы не менять пароль",
+    setup_banner: "Режим настройки. Выберите свою сеть Wi-Fi ниже. После подключения часы покажут новый адрес на экране.",
+    setup_banner_failed: "Нет связи с «{0}». Часы продолжают попытки; здесь можно указать другую сеть.",
+    mqtt_title: "Брокер", mqtt_enabled: "Публиковать в MQTT", mqtt_host: "Адрес брокера", mqtt_port: "Порт",
+    mqtt_user: "Пользователь", mqtt_pass: "Пароль", mqtt_discovery: "Автообнаружение Home Assistant", advanced: "Дополнительно",
+    mqtt_prefix: "Префикс топиков", mqtt_disc_prefix: "Префикс обнаружения", mqtt_topics: "Топики для автоматизаций",
+    k_broker: "Брокер", k_topic: "Топики", pass_set: "сохранён, оставьте пустым",
+    device_eyebrow: "Прибор", device_title: "Имя и датчики", dev_name: "Имя (видно и в Home Assistant)",
+    co2_threshold: "Тревога CO₂ выше, ppm", temp_offset: "Поправка температуры, °C", co2_led: "Мигать светодиодом выше порога",
+    cal_title: "Калибровка", cal_hint: "Текущее показание принимается за 400 ppm. Перед этим держите часы на улице или у открытого окна не меньше 20 минут.",
+    cal_btn: "Калибровать на 400 ppm", cal_confirm: "Часы 20 минут на свежем воздухе? Текущее показание станет 400 ppm.", cal_done: "Команда калибровки отправлена.",
+    fw_eyebrow: "Прошивка", fw_title: "Обновление", fw_file: "firmware.bin", fw_upload: "Загрузить и установить",
+    fw_hint: "Если новая прошивка не запустится, часы вернутся к текущей.",
+    k_version: "Версия", k_partition: "Раздел", k_idf: "ESP-IDF", k_heap: "Свободная память", k_reset: "Последний сброс", k_mac: "MAC",
+    ota_uploading: "Загрузка… {0}%", ota_done: "Установлено. Перезапуск…", ota_back: "Часы снова в сети, версия {0}.",
+    maint_eyebrow: "Обслуживание", maint_title: "Перезапуск и сброс", reboot: "Перезапустить", forget: "Забыть Wi-Fi", factory: "Сброс к заводским",
+    reset_hint: "Без веб-страницы: включите часы в сеть три раза подряд, каждый раз отключая их раньше чем через пять секунд. Настройки Wi-Fi и MQTT сотрутся.",
+    confirm_reboot: "Перезапустить часы?", confirm_forget: "Забыть сеть Wi-Fi и настройки MQTT? Часы включат точку настройки.",
+    confirm_factory: "Стереть все настройки?", restarting: "Перезапуск…",
+    api_title: "Локальный HTTP API", offline: "Нет связи с часами", error: "Ошибка: {0}",
+    footer: "{0} · прошивка {1} · {2}",
+  },
+};
+
+let lang = localStorage.getItem("lang") || ((navigator.language || "").startsWith("ru") ? "ru" : "en");
+if (!I18N[lang]) lang = "en";
+const t = (k, ...a) => (I18N[lang][k] ?? I18N.en[k] ?? k).replace(/\{(\d)\}/g, (_, i) => a[i] ?? "");
+
+function applyI18n() {
+  document.documentElement.lang = lang;
+  $$("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+  $$("[data-i18n-placeholder]").forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  $$("[data-i18n-title]").forEach(el => { el.title = t(el.dataset.i18nTitle); el.setAttribute("aria-label", el.title); });
+  $$("[data-lang]").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang === lang));
+}
+
+/* ===================== theme ===================== */
+function applyTheme(mode) {
+  if (mode === "light" || mode === "dark") document.documentElement.dataset.theme = mode;
+  else delete document.documentElement.dataset.theme;
+  $$("[data-theme-btn]").forEach(b => b.setAttribute("aria-pressed", b.dataset.themeBtn === mode));
+}
+let theme = localStorage.getItem("theme") || "auto";
+applyTheme(theme);
+
+/* ===================== API ===================== */
+async function api(path, opts = {}) {
+  const init = { method: opts.method || "GET", headers: {} };
+  if (opts.json !== undefined) {
+    init.body = JSON.stringify(opts.json);
+    init.headers["Content-Type"] = "application/json";
+  } else if (opts.body !== undefined) {
+    init.body = opts.body;
+  }
+  const r = await fetch(path, init);
+  const type = r.headers.get("Content-Type") || "";
+  const data = type.includes("json") ? await r.json() : await r.blob();
+  if (!r.ok) throw new Error((data && data.error) || r.statusText);
+  return data;
+}
+
+function setStatus(id, text, err = false) {
+  const el = $("#" + id);
+  el.textContent = text;
+  el.classList.toggle("err", err);
+}
+
+async function run(id, fn) {
+  try { await fn(); } catch (e) { setStatus(id, t("error", e.message), true); }
+}
+
+function showBlob(img, blob) {
+  const url = URL.createObjectURL(blob);
+  const old = img.dataset.url;
+  img.onload = () => { if (old) URL.revokeObjectURL(old); };
+  img.dataset.url = url;
+  img.src = url;
+}
+
+/* Panel pixels stay square only at integer scales. */
+function fitScreens() {
+  $$(".screen").forEach(img => {
+    const box = img.closest(".device").parentElement.clientWidth - 28;
+    if (box <= 0) return; /* hidden tab */
+    const scale = box >= 296 ? Math.min(3, Math.floor(box / 296)) : box / 296;
+    img.style.width = 296 * scale + "px";
+    img.style.height = 128 * scale + "px";
+  });
+}
+new ResizeObserver(fitScreens).observe(document.body);
+
+/* ===================== tabs ===================== */
+function selectTab(name) {
+  $$("nav [role=tab]").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
+  $$("section[role=tabpanel]").forEach(s => s.classList.toggle("active", s.id === "tab-" + name));
+  if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
+  if (name === "display") schedulePreview();
+  fitScreens();
+}
+$$("nav [role=tab]").forEach(b => b.addEventListener("click", () => selectTab(b.dataset.tab)));
+
+/* ===================== state ===================== */
+let state = null;
+let config = null;
+let draft = null;
+
+/* 16x16 icons from src/icons.h, the same pixels the panel shows */
+const ICONS = {
+  temperature: "M5 2h3v1h-3zM11 2h3v1h-3zM4 3h5v1h-5zM11 3h1v1h-1zM13 3h1v1h-1zM4 4h5v1h-5zM11 4h3v1h-3zM4 5h5v1h-5zM4 6h5v1h-5zM4 7h5v1h-5zM4 8h2v1h-2zM7 8h2v1h-2zM3 9h3v1h-3zM7 9h3v1h-3zM3 10h2v1h-2zM8 10h2v1h-2zM3 11h2v1h-2zM8 11h2v1h-2zM3 12h7v1h-7zM4 13h5v1h-5z",
+  humidity: "M7 2h2v1h-2zM6 3h4v1h-4zM5 4h6v1h-6zM5 5h6v1h-6zM4 6h8v1h-8zM4 7h8v1h-8zM3 8h10v1h-10zM3 9h2v1h-2zM6 9h7v1h-7zM3 10h2v1h-2zM7 10h6v1h-6zM4 11h2v1h-2zM8 11h4v1h-4zM4 12h3v1h-3zM9 12h3v1h-3zM5 13h6v1h-6z",
+  pressure: "M5 2h6v1h-6zM4 3h8v1h-8zM3 4h10v1h-10zM2 5h3v1h-3zM6 5h1v1h-1zM9 5h1v1h-1zM11 5h3v1h-3zM2 6h5v1h-5zM9 6h5v1h-5zM2 7h2v1h-2zM5 7h2v1h-2zM9 7h2v1h-2zM12 7h2v1h-2zM2 8h5v1h-5zM9 8h5v1h-5zM2 9h5v1h-5zM9 9h5v1h-5zM2 10h4v1h-4zM10 10h4v1h-4zM3 11h4v1h-4zM9 11h4v1h-4zM4 12h8v1h-8zM5 13h6v1h-6z",
+  co2: "M10 2h4v1h-4zM2 3h3v1h-3zM9 3h5v1h-5zM2 4h5v1h-5zM8 4h6v1h-6zM2 5h6v1h-6zM9 5h5v1h-5zM2 6h6v1h-6zM10 6h3v1h-3zM3 7h6v1h-6zM10 7h1v1h-1zM4 8h5v1h-5zM6 9h3v1h-3zM7 10h2v1h-2zM7 11h2v1h-2zM7 12h2v1h-2zM7 13h2v1h-2z",
+};
+const icon = id => `<svg viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="${ICONS[id]}"/></svg>`;
+
+function fmt(v, d = 0) { return v === null || v === undefined ? "—" : Number(v).toFixed(d); }
+function uptime(s) {
+  const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  const [ud, uh, um] = lang === "ru" ? ["д", "ч", "мин"] : ["d", "h", "m"];
+  return (d ? `${d} ${ud} ` : "") + (d || h ? `${h} ${uh} ` : "") + `${m} ${um}`;
+}
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function renderReadings() {
+  const s = state.sensors, d = config ? config.display : { temp_unit: "c", pressure_unit: "hpa" };
+  let temp = s.temperature_c, tu = "°C";
+  if (temp !== null && d.temp_unit === "f") { temp = temp * 9 / 5 + 32; tu = "°F"; }
+  let pr = s.pressure_hpa, pu = t("u_hpa");
+  if (pr !== null && d.pressure_unit === "mmhg") { pr = pr * 0.750062; pu = t("u_mmhg"); }
+  const items = [
+    ["temperature", fmt(temp, 1), tu],
+    ["humidity", fmt(s.humidity_pct), "%"],
+    ["pressure", fmt(pr), pu],
+    ["co2", fmt(s.co2_ppm), "ppm", s.co2_high],
+  ];
+  $("#readings").innerHTML = items.map(([k, v, u, alarm]) => `
+    <div class="reading${alarm ? " alarm" : ""}">
+      <div class="eyebrow">${icon(k)} ${t(k)}</div>
+      <div class="value">${v}<small>${u}</small></div>
+    </div>`).join("");
+}
+
+function kv(el, rows) {
+  $(el).innerHTML = rows.filter(Boolean).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("");
+}
+const dot = (ok, text) => `<span class="dot ${ok ? "ok" : "bad"}"></span>${esc(text)}`;
+
+function bars(rssi) {
+  const n = rssi >= -55 ? 4 : rssi >= -65 ? 3 : rssi >= -75 ? 2 : 1;
+  return `<span class="bars" aria-label="${rssi} dBm">${[1, 2, 3, 4].map(i => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</span>`;
+}
+
+function renderState() {
+  const s = state, w = s.wifi, m = s.mqtt;
+  $("#dev-name").textContent = s.device.name;
+  document.title = s.device.name;
+  renderReadings();
+
+  kv("#overview-kv", [
+    [t("k_time"), s.time.valid ? esc(s.time.local.replace("T", " ")) + ` <span class="muted">${esc(s.time.timezone)}</span>` : t("time_unset")],
+    [t("k_wifi"), w.connected ? dot(true, `${w.ssid} · ${w.ip}`) : dot(false, w.ap_active ? `${t("k_ap")}: ${w.ap_ssid}` : t("disconnected"))],
+    [t("k_mqtt"), m.enabled ? dot(m.connected, m.connected ? t("connected") : t("disconnected")) : `<span class="dot"></span>${t("off")}`],
+    [t("k_notice"), s.notification ? esc(s.notification.text) : "—"],
+    [t("k_uptime"), uptime(s.device.uptime_s)],
+  ]);
+
+  kv("#wifi-kv", [
+    [t("k_network"), w.connected ? dot(true, w.ssid) : dot(false, w.ssid || t("disconnected"))],
+    w.connected && [t("k_ip"), `<a href="http://${esc(w.ip)}/">${esc(w.ip)}</a>`],
+    w.connected && [t("k_signal"), `${bars(w.rssi)} ${w.rssi} dBm`],
+    [t("k_hostname"), `<a href="http://${esc(s.device.hostname)}.local/">${esc(s.device.hostname)}.local</a>`],
+    [t("k_ap"), w.ap_active ? dot(true, `${t("ap_on")} · ${w.ap_ssid}`) : t("ap_off")],
+  ]);
+  $("#wifi-pass").placeholder = w.configured ? t("keep_pass") : "";
+
+  kv("#mqtt-kv", [
+    [t("k_mqtt"), m.enabled ? dot(m.connected, m.connected ? t("connected") : t("disconnected")) : t("off")],
+    [t("k_topic"), esc(m.base_topic) + "/…"],
+  ]);
+  const b = m.base_topic;
+  $("#mqtt-topics").textContent =
+`${b}/state                 ← JSON
+${b}/status                ← online / offline
+${b}/notify                → {"text":"…","ttl":600,"fullscreen":false}
+${b}/notification/set      → plain text
+${b}/command               → clear_notification | reboot | calibrate_co2
+${b}/layout/set            → classic | clock | co2 | sensors
+${b}/co2_threshold/set     → 400…5000`;
+
+  kv("#fw-kv", [
+    [t("k_version"), esc(s.device.version)],
+    [t("k_partition"), esc(s.device.partition)],
+    [t("k_idf"), esc(s.device.idf)],
+    [t("k_heap"), `${Math.round(s.device.heap_free / 1024)} KB (min ${Math.round(s.device.heap_min / 1024)} KB)`],
+    [t("k_reset"), esc(s.device.reset_reason)],
+    [t("k_mac"), esc(s.device.mac)],
+  ]);
+  $("#api-example").textContent =
+`curl http://${w.ip || "192.168.4.1"}/api/state
+curl -X POST http://${w.ip || "192.168.4.1"}/api/notify \\
+     -d '{"text":"${lang === "ru" ? "Проветрите" : "Open the window"}","ttl":600}'`;
+  $("#footer").textContent = t("footer", s.device.hostname, s.device.version, s.device.mac);
+
+  const banner = $("#setup-banner");
+  if (w.ap_active && !w.connected) {
+    banner.hidden = false;
+    banner.classList.toggle("alarm", w.configured);
+    banner.textContent = w.configured ? t("setup_banner_failed", w.ssid) : t("setup_banner");
+  } else {
+    banner.hidden = true;
+  }
+}
+
+async function refreshState() {
+  try {
+    state = await api("/api/state");
+    renderState();
+  } catch (e) {
+    $("#footer").textContent = t("offline");
+  }
+}
+
+async function refreshScreen() {
+  if (document.hidden) return;
+  try { showBlob($("#screen"), await api("/api/screen.bmp")); } catch (e) { /* offline */ }
+}
+
+/* ===================== display editor ===================== */
+const LAYOUT_ART = {
+  classic: '<rect x="4" y="9" width="30" height="9"/><rect x="8" y="22" width="22" height="3"/><rect x="42" y="7" width="16" height="3"/><rect x="42" y="13" width="12" height="3"/><rect x="42" y="19" width="16" height="3"/><rect x="42" y="25" width="12" height="3"/>',
+  clock: '<rect x="8" y="6" width="48" height="15"/><rect x="16" y="25" width="32" height="3"/>',
+  co2: '<rect x="14" y="5" width="36" height="14"/><rect x="2" y="23" width="60" height="1"/><rect x="4" y="27" width="10" height="3"/><rect x="20" y="27" width="10" height="3"/><rect x="36" y="27" width="10" height="3"/><rect x="50" y="27" width="10" height="3"/>',
+  sensors: '<rect x="6" y="7" width="20" height="6"/><rect x="38" y="7" width="20" height="6"/><rect x="6" y="21" width="20" height="6"/><rect x="38" y="21" width="20" height="6"/>',
+};
+
+function renderLayouts() {
+  $("#layouts").innerHTML = Object.keys(LAYOUT_ART).map(l => `
+    <label><input type="radio" name="layout" value="${l}"${draft.display.layout === l ? " checked" : ""}>
+      <svg viewBox="0 0 64 34" aria-hidden="true"><rect x=".5" y=".5" width="63" height="33" fill="none" stroke="currentColor" opacity=".35"/><g fill="currentColor">${LAYOUT_ART[l]}</g></svg>
+      <b>${t("l_" + l)}</b></label>`).join("");
+  $$("#layouts input").forEach(i => i.addEventListener("change", () => { draft.display.layout = i.value; schedulePreview(); }));
+}
+
+function renderMetrics() {
+  const list = draft.display.metrics;
+  $("#metrics").innerHTML = list.map((m, i) => `
+    <li class="${m.enabled ? "" : "off"}">
+      <label><input type="checkbox" data-i="${i}"${m.enabled ? " checked" : ""}>${icon(m.id)}<span>${t(m.id)}</span></label>
+      <button type="button" class="icon-btn" data-move="${i}" data-dir="-1" aria-label="${t("up")}"${i === 0 ? " disabled" : ""}>↑</button>
+      <button type="button" class="icon-btn" data-move="${i}" data-dir="1" aria-label="${t("down")}"${i === list.length - 1 ? " disabled" : ""}>↓</button>
+    </li>`).join("");
+  $$("#metrics input").forEach(c => c.addEventListener("change", () => {
+    list[+c.dataset.i].enabled = c.checked; renderMetrics(); schedulePreview();
+  }));
+  $$("#metrics [data-move]").forEach(b => b.addEventListener("click", () => {
+    const i = +b.dataset.move, j = i + +b.dataset.dir;
+    [list[i], list[j]] = [list[j], list[i]];
+    renderMetrics(); schedulePreview();
+    $(`#metrics [data-move="${j}"][data-dir="${b.dataset.dir}"]`)?.focus();
+  }));
+}
+
+/* name, POSIX TZ */
+const ZONES = [
+  ["Europe/Kaliningrad", "EET-2"], ["Europe/Moscow", "MSK-3"], ["Europe/Samara", "<+04>-4"],
+  ["Asia/Yekaterinburg", "<+05>-5"], ["Asia/Omsk", "<+06>-6"], ["Asia/Novosibirsk", "<+07>-7"],
+  ["Asia/Krasnoyarsk", "<+07>-7"], ["Asia/Irkutsk", "<+08>-8"], ["Asia/Yakutsk", "<+09>-9"],
+  ["Asia/Vladivostok", "<+10>-10"], ["Asia/Magadan", "<+11>-11"], ["Asia/Kamchatka", "<+12>-12"],
+  ["Europe/Minsk", "<+03>-3"], ["Europe/Istanbul", "<+03>-3"], ["Europe/Kyiv", "EET-2EEST,M3.5.0/3,M10.5.0/4"],
+  ["Europe/Berlin", "CET-1CEST,M3.5.0,M10.5.0/3"], ["Europe/Paris", "CET-1CEST,M3.5.0,M10.5.0/3"],
+  ["Europe/London", "GMT0BST,M3.5.0/1,M10.5.0"], ["UTC", "UTC0"],
+  ["Asia/Tbilisi", "<+04>-4"], ["Asia/Yerevan", "<+04>-4"], ["Asia/Baku", "<+04>-4"], ["Asia/Dubai", "<+04>-4"],
+  ["Asia/Almaty", "<+05>-5"], ["Asia/Tashkent", "<+05>-5"], ["Asia/Bishkek", "<+06>-6"],
+  ["Asia/Kolkata", "IST-5:30"], ["Asia/Shanghai", "CST-8"], ["Asia/Tokyo", "JST-9"],
+  ["America/New_York", "EST5EDT,M3.2.0,M11.1.0"], ["America/Chicago", "CST6CDT,M3.2.0,M11.1.0"],
+  ["America/Denver", "MST7MDT,M3.2.0,M11.1.0"], ["America/Los_Angeles", "PST8PDT,M3.2.0,M11.1.0"],
+  ["Australia/Sydney", "AEST-10AEDT,M10.1.0,M4.1.0/3"],
+];
+
+function renderZones() {
+  const sel = $("#f-timezone");
+  const cur = draft.display.timezone;
+  const known = ZONES.some(([n]) => n === cur);
+  sel.innerHTML = ZONES.map(([n]) => `<option value="${n}">${n.replace(/_/g, " ")}</option>`).join("") +
+    `<option value="">${t("tz_other")}</option>`;
+  sel.value = known ? cur : "";
+  $("#tz-custom-wrap").hidden = known;
+  $("#f-tz_posix").value = draft.display.tz_posix;
+}
+
+const DISPLAY_FIELDS = {
+  date_format: "value", language: "value", temp_unit: "value", pressure_unit: "value",
+  show_date: "checked", hour24: "checked", invert: "checked", rotate180: "checked",
+};
+
+function fillDisplayForm() {
+  for (const [k, prop] of Object.entries(DISPLAY_FIELDS)) $("#f-" + k)[prop] = draft.display[k];
+  renderLayouts();
+  renderMetrics();
+  renderZones();
+}
+
+for (const [k, prop] of Object.entries(DISPLAY_FIELDS)) {
+  $("#f-" + k).addEventListener("change", e => { draft.display[k] = e.target[prop]; schedulePreview(); });
+}
+$("#f-timezone").addEventListener("change", e => {
+  const z = ZONES.find(([n]) => n === e.target.value);
+  $("#tz-custom-wrap").hidden = !!z;
+  if (z) { draft.display.timezone = z[0]; draft.display.tz_posix = z[1]; }
+  else { draft.display.timezone = "Custom"; $("#f-tz_posix").focus(); }
+  $("#f-tz_posix").value = draft.display.tz_posix;
+  schedulePreview();
+});
+$("#f-tz_posix").addEventListener("input", e => { draft.display.tz_posix = e.target.value.trim(); draft.display.timezone = "Custom"; schedulePreview(); });
+["#pv-notice", "#pv-full", "#pv-setup"].forEach(s => $(s).addEventListener("change", schedulePreview));
+
+let previewTimer = null, previewBusy = false, previewAgain = false;
+function schedulePreview() {
+  if (!draft) return;
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(renderPreview, 250);
+}
+async function renderPreview() {
+  if (previewBusy) { previewAgain = true; return; }
+  previewBusy = true;
+  const body = { settings: { display: draft.display } };
+  if ($("#pv-setup").checked) body.screen = "setup";
+  else if ($("#pv-notice").checked) body.notification = { text: t("preview_sample"), fullscreen: $("#pv-full").checked };
+  try {
+    showBlob($("#preview"), await api("/api/preview", { method: "POST", json: body }));
+    if ($("#display-status").classList.contains("err")) setStatus("display-status", "");
+  } catch (e) { setStatus("display-status", t("error", e.message), true); }
+  previewBusy = false;
+  if (previewAgain) { previewAgain = false; renderPreview(); }
+}
+
+$("#display-save").addEventListener("click", () => run("display-status", async () => {
+  config = await api("/api/config", { method: "POST", json: { display: draft.display } });
+  draft = structuredClone(config);
+  fillDisplayForm();
+  setStatus("display-status", t("saved"));
+  setTimeout(refreshScreen, 4000);
+}));
+$("#display-reset").addEventListener("click", () => {
+  draft = structuredClone(config);
+  fillDisplayForm();
+  schedulePreview();
+  setStatus("display-status", "");
+});
+
+/* ===================== notifications ===================== */
+$("#notify-form").addEventListener("submit", e => {
+  e.preventDefault();
+  run("notify-status", async () => {
+    await api("/api/notify", { method: "POST", json: {
+      text: $("#notify-text").value, ttl: +$("#notify-ttl").value, fullscreen: $("#notify-full").checked } });
+    setStatus("notify-status", t("notify_sent"));
+    refreshState();
+    setTimeout(refreshScreen, 4000);
+  });
+});
+$("#notify-clear").addEventListener("click", () => run("notify-status", async () => {
+  await api("/api/notify", { method: "DELETE" });
+  setStatus("notify-status", t("notify_cleared"));
+  refreshState();
+  setTimeout(refreshScreen, 4000);
+}));
+
+/* ===================== Wi-Fi ===================== */
+$("#wifi-show").addEventListener("change", e => { $("#wifi-pass").type = e.target.checked ? "text" : "password"; });
+
+$("#wifi-scan").addEventListener("click", () => run("wifi-status", async () => {
+  const btn = $("#wifi-scan");
+  btn.disabled = true;
+  btn.textContent = t("scanning");
+  try {
+    const nets = await api("/api/wifi/scan");
+    $("#nets").innerHTML = nets.map(n => `<li><button type="button" data-ssid="${esc(n.ssid)}">
+      ${bars(n.rssi)}<span class="name">${esc(n.ssid)}</span><span class="muted">${n.secure ? "🔒" : ""}</span></button></li>`).join("");
+    $$("#nets button").forEach(b => b.addEventListener("click", () => {
+      $("#wifi-ssid").value = b.dataset.ssid;
+      $("#wifi-pass").value = "";
+      $("#wifi-pass").focus();
+    }));
+    setStatus("wifi-status", nets.length ? "" : t("no_networks"));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t("wifi_scan");
+  }
+}));
+
+$("#wifi-form").addEventListener("submit", e => {
+  e.preventDefault();
+  run("wifi-status", async () => {
+    const ssid = $("#wifi-ssid").value.trim();
+    const pass = $("#wifi-pass").value;
+    const body = { ssid };
+    if (pass || !state.wifi.configured || ssid !== state.wifi.ssid) body.password = pass;
+    await api("/api/wifi", { method: "POST", json: body });
+    setStatus("wifi-status", t("wifi_connecting", ssid));
+    /* The radio may switch channels while connecting: poll until the clock
+     * reports an address (or give up after ~45 s). */
+    for (let i = 0; i < 15; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      try {
+        const s = await api("/api/state");
+        if (s.wifi.connected && s.wifi.ssid === ssid) {
+          state = s; renderState();
+          setStatus("wifi-status", t("wifi_ok", `http://${s.wifi.ip}/`));
+          return;
+        }
+      } catch (err) { /* phone may be reconnecting to the AP */ }
+    }
+    setStatus("wifi-status", t("wifi_fail"), true);
+  });
+});
+
+/* ===================== MQTT ===================== */
+const MQTT_TEXT = ["host", "username", "prefix", "discovery_prefix"];
+function fillMqttForm() {
+  const m = config.mqtt;
+  $("#m-enabled").checked = m.enabled;
+  $("#m-discovery").checked = m.discovery;
+  $("#m-port").value = m.port;
+  MQTT_TEXT.forEach(k => { $("#m-" + k).value = m[k]; });
+  $("#m-password").value = "";
+  $("#m-password").placeholder = m.password_set ? t("pass_set") : "";
+  $("#m-prefix").placeholder = state ? state.mqtt.base_topic : "";
+}
+$("#mqtt-form").addEventListener("submit", e => {
+  e.preventDefault();
+  run("mqtt-status", async () => {
+    const m = { enabled: $("#m-enabled").checked, discovery: $("#m-discovery").checked, port: +$("#m-port").value || 1883 };
+    MQTT_TEXT.forEach(k => { m[k] = $("#m-" + k).value.trim(); });
+    if ($("#m-password").value) m.password = $("#m-password").value;
+    config = await api("/api/config", { method: "POST", json: { mqtt: m } });
+    fillMqttForm();
+    setStatus("mqtt-status", t("saved"));
+    setTimeout(refreshState, 3000);
+  });
+});
+
+/* ===================== device ===================== */
+function fillDeviceForm() {
+  $("#d-name").value = config.name;
+  $("#d-co2_threshold_ppm").value = config.sensors.co2_threshold_ppm;
+  $("#d-temp_offset_c").value = config.sensors.temp_offset_c;
+  $("#d-co2_led").checked = config.sensors.co2_led;
+}
+$("#device-form").addEventListener("submit", e => {
+  e.preventDefault();
+  run("device-status", async () => {
+    config = await api("/api/config", { method: "POST", json: {
+      name: $("#d-name").value.trim(),
+      sensors: {
+        co2_threshold_ppm: +$("#d-co2_threshold_ppm").value,
+        temp_offset_c: +$("#d-temp_offset_c").value,
+        co2_led: $("#d-co2_led").checked,
+      } } });
+    fillDeviceForm();
+    setStatus("device-status", t("saved"));
+    refreshState();
+  });
+});
+
+$("#cal-btn").addEventListener("click", () => {
+  if (!confirm(t("cal_confirm"))) return;
+  run("cal-status", async () => {
+    await api("/api/co2/calibrate", { method: "POST" });
+    setStatus("cal-status", t("cal_done"));
+  });
+});
+
+/* ===================== maintenance ===================== */
+async function waitForReboot(statusId, done) {
+  await new Promise(r => setTimeout(r, 5000));
+  for (let i = 0; i < 40; i++) {
+    try {
+      const s = await api("/api/state");
+      state = s; renderState();
+      done(s);
+      return;
+    } catch (e) { await new Promise(r => setTimeout(r, 2000)); }
+  }
+}
+
+function system(path, confirmKey) {
+  if (!confirm(t(confirmKey))) return;
+  run("maint-status", async () => {
+    await api(path, { method: "POST" });
+    setStatus("maint-status", t("restarting"));
+    waitForReboot("maint-status", () => setStatus("maint-status", ""));
+  });
+}
+$("#btn-reboot").addEventListener("click", () => system("/api/system/reboot", "confirm_reboot"));
+$("#btn-forget").addEventListener("click", () => system("/api/system/forget-wifi", "confirm_forget"));
+$("#btn-factory").addEventListener("click", () => system("/api/system/factory-reset", "confirm_factory"));
+
+$("#ota-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const file = $("#ota-file").files[0];
+  if (!file) return;
+  const bar = $("#ota-progress");
+  const btn = $("#ota-form button");
+  bar.hidden = false; bar.value = 0; btn.disabled = true;
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/api/ota");
+  xhr.upload.onprogress = ev => {
+    if (!ev.lengthComputable) return;
+    const p = Math.round(ev.loaded / ev.total * 100);
+    bar.value = p;
+    setStatus("ota-status", t("ota_uploading", p));
+  };
+  xhr.onload = () => {
+    btn.disabled = false;
+    if (xhr.status === 200) {
+      setStatus("ota-status", t("ota_done"));
+      waitForReboot("ota-status", s => setStatus("ota-status", t("ota_back", s.device.version)));
+    } else {
+      let msg = xhr.statusText;
+      try { msg = JSON.parse(xhr.responseText).error; } catch (err) { /* plain text */ }
+      setStatus("ota-status", t("error", msg), true);
+    }
+  };
+  xhr.onerror = () => { btn.disabled = false; setStatus("ota-status", t("error", "network"), true); };
+  xhr.send(file);
+});
+
+/* ===================== boot ===================== */
+$$("[data-lang]").forEach(b => b.addEventListener("click", () => {
+  lang = b.dataset.lang;
+  localStorage.setItem("lang", lang);
+  applyI18n();
+  if (state) renderState();
+  if (config) { fillMqttForm(); renderLayouts(); renderMetrics(); renderZones(); }
+}));
+$$("[data-theme-btn]").forEach(b => b.addEventListener("click", () => {
+  theme = b.dataset.themeBtn;
+  localStorage.setItem("theme", theme);
+  applyTheme(theme);
+}));
+
+async function init() {
+  applyI18n();
+  await refreshState();
+  try {
+    config = await api("/api/config");
+    draft = structuredClone(config);
+    fillDisplayForm(); fillMqttForm(); fillDeviceForm();
+    if (state) renderState();
+  } catch (e) { /* offline */ }
+
+  const tab = location.hash.slice(1);
+  const setup = state && state.wifi.ap_active && !state.wifi.connected;
+  selectTab(["overview", "display", "network", "system"].includes(tab) ? tab : setup ? "network" : "overview");
+
+  refreshScreen();
+  setInterval(refreshState, 5000);
+  setInterval(refreshScreen, 15000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { refreshState(); refreshScreen(); } });
+}
+init();
+</script>
+</body>
+</html>
