@@ -47,6 +47,10 @@ jobs:
       - name: Host unit tests
         run: pio test -e native
 
+      # The same tests plus the fuzzers under AddressSanitizer and UBSan.
+      - name: Host tests with sanitizers
+        run: pio test -e native-asan
+
       - uses: actions/upload-artifact@v4
         with:
           name: firmware
