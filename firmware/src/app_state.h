@@ -66,4 +66,7 @@ bool app_take_co2_calibration(void);
  * then restarts. Runs in its own task, returns immediately. */
 void app_restart_later(overlay_t overlay, int delay_ms);
 
+/* One main-loop tick plus a full (~2 s) panel refresh of the overlay. */
+#define RESTART_DELAY_MS 4500
+
 int64_t app_uptime_ms(void);

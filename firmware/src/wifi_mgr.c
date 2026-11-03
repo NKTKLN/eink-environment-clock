@@ -84,8 +84,17 @@ static void ap_start(bool after_failure)
     cfg.ap.authmode = WIFI_AUTH_WPA2_PSK;
     cfg.ap.pmf_cfg.required = false;
 
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &cfg));
+    esp_err_t err = esp_wifi_set_mode(WIFI_MODE_APSTA);
+    if (err == ESP_OK) {
+        err = esp_wifi_set_config(WIFI_IF_AP, &cfg);
+    }
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "AP start failed: %s", esp_err_to_name(err));
+        LOCK();
+        s_st.ap_active = false;
+        UNLOCK();
+        return;
+    }
     dns_server_start();
     ESP_LOGW(TAG, "setup AP \"%s\" started", s_st.ap_ssid);
     bump();

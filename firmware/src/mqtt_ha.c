@@ -146,7 +146,7 @@ static void handle_message(const esp_mqtt_event_t *e)
         app_request_redraw();
         break;
     case HA_ACT_REBOOT:
-        app_restart_later(OVERLAY_RESTART, 3000);
+        app_restart_later(OVERLAY_RESTART, RESTART_DELAY_MS);
         break;
     case HA_ACT_CALIBRATE:
         app_request_co2_calibration();

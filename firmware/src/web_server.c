@@ -523,7 +523,7 @@ static esp_err_t calibrate_post(httpd_req_t *req)
 static esp_err_t reboot_post(httpd_req_t *req)
 {
     esp_err_t err = send_ok(req);
-    app_restart_later(OVERLAY_RESTART, 2000);
+    app_restart_later(OVERLAY_RESTART, RESTART_DELAY_MS);
     return err;
 }
 
@@ -531,7 +531,7 @@ static esp_err_t forget_wifi_post(httpd_req_t *req)
 {
     settings_forget_network();
     esp_err_t err = send_ok(req);
-    app_restart_later(OVERLAY_RESET, 2000);
+    app_restart_later(OVERLAY_RESET, RESTART_DELAY_MS);
     return err;
 }
 
@@ -539,7 +539,7 @@ static esp_err_t factory_reset_post(httpd_req_t *req)
 {
     settings_factory_reset();
     esp_err_t err = send_ok(req);
-    app_restart_later(OVERLAY_RESET, 2000);
+    app_restart_later(OVERLAY_RESET, RESTART_DELAY_MS);
     return err;
 }
 
@@ -618,7 +618,7 @@ static esp_err_t ota_post(httpd_req_t *req)
 
     ESP_LOGW(TAG, "OTA done, restarting");
     esp_err_t res = send_ok(req);
-    app_restart_later(OVERLAY_RESTART, 1500);
+    app_restart_later(OVERLAY_RESTART, RESTART_DELAY_MS);
     return res;
 }
 
