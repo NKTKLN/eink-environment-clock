@@ -219,9 +219,14 @@ static void on_got_ip(void *arg, esp_event_base_t base, int32_t id,
 
     settings_t s;
     settings_get(&s);
-    char msg[64];
-    snprintf(msg, sizeof(msg), ui_str(&s, UI_STR_CONNECTED), s_st.ip);
-    app_system_notice(msg, WIFI_CONNECTED_NOTICE_S);
+    if (s.display.connect_notice_s != 0) {
+        char msg[64];
+        snprintf(msg, sizeof(msg), ui_str(&s, UI_STR_CONNECTED), s_st.ip);
+        /* -1 = until removed, which notify_set spells as ttl 0 */
+        app_system_notice(msg, s.display.connect_notice_s < 0
+                                   ? 0
+                                   : s.display.connect_notice_s);
+    }
     bump();
 }
 

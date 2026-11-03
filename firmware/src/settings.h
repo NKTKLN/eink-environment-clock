@@ -63,6 +63,9 @@ typedef struct {
         metric_slot_t metrics[METRIC_COUNT]; /* display order */
         bool invert;
         bool rotate180;
+        /* How long "Connected: <ip>" stays after joining Wi-Fi:
+         * 0 = not shown, -1 = until removed, otherwise seconds. */
+        int connect_notice_s;
         temp_unit_t temp_unit;
         pressure_unit_t pressure_unit;
     } display;
@@ -93,6 +96,7 @@ typedef struct {
 #define CO2_THRESHOLD_MIN 400
 #define CO2_THRESHOLD_MAX 5000
 #define TEMP_OFFSET_LIMIT 10.0f
+#define CONNECT_NOTICE_MAX (24 * 3600)
 
 void settings_defaults(settings_t *s);
 

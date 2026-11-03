@@ -40,10 +40,10 @@
 
 /* Wi-Fi: how long to try the saved network before opening the setup
  * access point, and how long the AP stays up after a successful
- * connection so the setup page can show the new address. */
+ * connection so the setup page can show the new address. How long the
+ * address stays on the screen is a user setting (connect_notice_s). */
 #define WIFI_FALLBACK_AP_S     30
 #define WIFI_AP_LINGER_S       60
-#define WIFI_CONNECTED_NOTICE_S 120
 
 /* Display refresh policy (anti-ghosting):
  *  - full (flashing) refresh on boot and when the screen type changes;

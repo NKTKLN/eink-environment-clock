@@ -82,6 +82,7 @@ void app_notify_clear(void)
 {
     LOCK();
     notify_clear(&s_user);
+    notify_clear(&s_system); /* "Remove" means the strip goes away */
     UNLOCK();
 }
 

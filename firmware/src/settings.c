@@ -66,6 +66,7 @@ void settings_defaults(settings_t *s)
         s->display.metrics[i].id = (metric_id_t)i;
         s->display.metrics[i].enabled = true;
     }
+    s->display.connect_notice_s = 120;
     s->display.temp_unit = TEMP_UNIT_C;
     s->display.pressure_unit = PRESSURE_HPA;
 
@@ -173,6 +174,14 @@ bool settings_sanitize(settings_t *s)
     if (!tz_posix_valid(s->display.tz_posix)) {
         strcpy(s->display.tz_posix, "MSK-3");
         strcpy(s->display.timezone, "Europe/Moscow");
+        changed = true;
+    }
+
+    if (s->display.connect_notice_s < -1) {
+        s->display.connect_notice_s = -1;
+        changed = true;
+    } else if (s->display.connect_notice_s > CONNECT_NOTICE_MAX) {
+        s->display.connect_notice_s = CONNECT_NOTICE_MAX;
         changed = true;
     }
 
@@ -329,6 +338,7 @@ void settings_apply_json(settings_t *s, const cJSON *json)
         apply_metrics(s, cJSON_GetObjectItemCaseSensitive(d, "metrics"));
         get_bool(d, "invert", &s->display.invert);
         get_bool(d, "rotate180", &s->display.rotate180);
+        get_int(d, "connect_notice_s", &s->display.connect_notice_s);
         get_enum(d, "temp_unit", TEMP_UNIT_NAMES, TEMP_UNIT_COUNT,
                  (int *)&s->display.temp_unit);
         get_enum(d, "pressure_unit", PRESSURE_NAMES, PRESSURE_UNIT_COUNT,
@@ -398,6 +408,7 @@ cJSON *settings_to_json(const settings_t *s, bool include_secrets)
     }
     cJSON_AddBoolToObject(d, "invert", s->display.invert);
     cJSON_AddBoolToObject(d, "rotate180", s->display.rotate180);
+    cJSON_AddNumberToObject(d, "connect_notice_s", s->display.connect_notice_s);
     cJSON_AddStringToObject(d, "temp_unit",
                             TEMP_UNIT_NAMES[s->display.temp_unit]);
     cJSON_AddStringToObject(d, "pressure_unit",

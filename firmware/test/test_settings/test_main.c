@@ -101,6 +101,13 @@ static void test_invalid_values_are_clamped(void)
     TEST_ASSERT_EQUAL_FLOAT(-TEMP_OFFSET_LIMIT, s.sensors.temp_offset_c);
     TEST_ASSERT_EQUAL(1883, s.mqtt.port);
     TEST_ASSERT_EQUAL_STRING("a/_/b", s.mqtt.prefix);
+
+    apply(&s, "{\"display\":{\"connect_notice_s\":-7}}");
+    TEST_ASSERT_EQUAL(-1, s.display.connect_notice_s); /* -1 = until removed */
+    apply(&s, "{\"display\":{\"connect_notice_s\":999999}}");
+    TEST_ASSERT_EQUAL(CONNECT_NOTICE_MAX, s.display.connect_notice_s);
+    apply(&s, "{\"display\":{\"connect_notice_s\":0}}");
+    TEST_ASSERT_EQUAL(0, s.display.connect_notice_s);
 }
 
 static void test_metric_order_repaired(void)

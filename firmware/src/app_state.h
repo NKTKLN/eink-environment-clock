@@ -24,6 +24,7 @@ void app_get_sensors(sensor_data_t *d);
 
 /* User notification (web, MQTT). ttl_s <= 0 = until cleared. */
 void app_notify(const char *text, int ttl_s, bool fullscreen);
+/* Removes the user notification and any system notice. */
 void app_notify_clear(void);
 
 /* Lower-priority system message (e.g. "Connected: 192.168.1.42"),
