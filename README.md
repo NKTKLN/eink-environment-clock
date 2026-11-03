@@ -69,8 +69,8 @@ Later updates can be uploaded from the **System** tab of the web interface (`.pi
 
 | Situation | What the clock does |
 |---|---|
-| No saved network | Starts the access point `EinkClock-XXXX` right away |
-| Saved network unreachable for 30 s | Starts the access point and keeps retrying the saved network |
+| No saved network | Starts the access point `EinkClock-XXXX` right away and shows the setup screen |
+| Saved network unreachable for 30 s | Starts the access point and keeps retrying the saved network; the clock keeps running and shows the access point details in a strip at the bottom |
 | Connected | Shows its address at the bottom of the screen for two minutes; the access point stops after one minute |
 
 The access point uses WPA2 with a new 8-digit password every time it starts. The screen shows the network name, the password, a QR code for joining it and the address `192.168.4.1`. Phones open the setup page on their own (captive portal).
