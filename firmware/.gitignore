@@ -4,3 +4,4 @@ src/secrets.h
 sdkconfig.esp32-c3-supermini
 managed_components/
 dependencies.lock
+src/web_index.h
