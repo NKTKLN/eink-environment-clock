@@ -19,13 +19,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "epd_geometry.h"
 #include "esp_err.h"
-
-#define EPD_PANEL_W 128 /* sources (short side) */
-#define EPD_PANEL_H 296 /* gates (long side) */
-
-/* Native framebuffer: 1bpp, bit set = white, 16 bytes per gate line. */
-#define EPD_FRAMEBUFFER_SIZE (EPD_PANEL_W / 8 * EPD_PANEL_H)
 
 /* Initialize SPI bus and control GPIOs. Does not touch the panel yet. */
 esp_err_t epd_init(void);
