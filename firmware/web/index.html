@@ -438,6 +438,7 @@ footer { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
         <label class="field" style="margin-top:4px"><span data-i18n="connect_notice">Address after connecting to Wi-Fi</span>
           <select id="f-connect_notice_s" name="connect_notice_s">
             <option value="0" data-i18n="cn_off">Don't show</option>
+            <option value="30" data-i18n="cn_30s">30 seconds</option>
             <option value="60" data-i18n="ttl_1m">1 minute</option>
             <option value="120" data-i18n="cn_2m">2 minutes</option>
             <option value="600" data-i18n="ttl_10m">10 minutes</option>
@@ -709,7 +710,7 @@ const I18N = {
     screen_note: "The panel right now, refreshed every 15 seconds",
     notify_title: "Message on the screen", notify_text: "Text",
     notify_placeholder: "Meeting until 15:00…", notify_ttl: "Show for", ttl_forever: "Until removed",
-    ttl_1m: "1 minute", ttl_10m: "10 minutes", cn_2m: "2 minutes", cn_off: "Don't show", connect_notice: "Address after connecting to Wi-Fi", ttl_5m: "5 minutes", ttl_15m: "15 minutes", ttl_1h: "1 hour", ttl_8h: "8 hours", ttl_24h: "24 hours",
+    ttl_1m: "1 minute", ttl_10m: "10 minutes", cn_2m: "2 minutes", cn_30s: "30 seconds", cn_off: "Don't show", connect_notice: "Address after connecting to Wi-Fi", ttl_5m: "5 minutes", ttl_15m: "15 minutes", ttl_1h: "1 hour", ttl_8h: "8 hours", ttl_24h: "24 hours",
     notify_full: "Full screen", notify_send: "Show on the screen", notify_clear: "Remove",
     notify_empty: "Type the text of the message first.", notify_sent: "Shown on the screen.", notify_cleared: "Removed.",
     status_title: "Status",
@@ -781,7 +782,7 @@ const I18N = {
     screen_note: "Панель сейчас, обновляется каждые 15 секунд",
     notify_title: "Сообщение на экране", notify_text: "Текст",
     notify_placeholder: "Совещание до 15:00…", notify_ttl: "Показывать", ttl_forever: "Пока не уберут",
-    ttl_1m: "1 минуту", ttl_10m: "10 минут", cn_2m: "2 минуты", cn_off: "Не показывать", connect_notice: "Адрес после подключения к Wi-Fi", ttl_5m: "5 минут", ttl_15m: "15 минут", ttl_1h: "1 час", ttl_8h: "8 часов", ttl_24h: "24 часа",
+    ttl_1m: "1 минуту", ttl_10m: "10 минут", cn_2m: "2 минуты", cn_30s: "30 секунд", cn_off: "Не показывать", connect_notice: "Адрес после подключения к Wi-Fi", ttl_5m: "5 минут", ttl_15m: "15 минут", ttl_1h: "1 час", ttl_8h: "8 часов", ttl_24h: "24 часа",
     notify_full: "На весь экран", notify_send: "Показать на экране", notify_clear: "Убрать",
     notify_empty: "Сначала введите текст сообщения.", notify_sent: "Показано на экране.", notify_cleared: "Убрано.",
     status_title: "Состояние",
@@ -1191,7 +1192,7 @@ for (const [k, prop] of Object.entries(DISPLAY_FIELDS)) {
 }
 /* numeric select: unknown values (set through the API) still show up */
 function fillConnectNotice() {
-  const sel = $("#f-connect_notice_s"), v = String(draft.display.connect_notice_s ?? 120);
+  const sel = $("#f-connect_notice_s"), v = String(draft.display.connect_notice_s ?? 30);
   if (![...sel.options].some(o => o.value === v)) sel.add(new Option(`${v} s`, v));
   sel.value = v;
 }

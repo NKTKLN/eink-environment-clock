@@ -121,9 +121,19 @@ static screen_t render(const settings_t *s, const sensor_data_t *shown_data)
     struct tm now;
     bool time_valid = sensors_get_time(&now);
     static app_notice_t n;
+    static bool notice_was_shown;
     static char strip[128];
     ui_notice_t notice = { 0 };
     bool has_notice = app_get_notice(&n, NULL);
+    if (has_notice != notice_was_shown) {
+        notice_was_shown = has_notice;
+        if (has_notice) {
+            ESP_LOGI(TAG, "message shown: \"%s\" (%s)", n.text,
+                     n.remaining_s < 0 ? "until removed" : "with expiry");
+        } else {
+            ESP_LOGI(TAG, "message removed");
+        }
+    }
     if (has_notice) {
         notice.text = n.text;
         notice.fullscreen = n.fullscreen;
@@ -269,6 +279,8 @@ void app_main(void)
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "display refresh failed: %s",
                          esp_err_to_name(err));
+            } else {
+                ESP_LOGD(TAG, "%s refresh", full ? "full" : "partial");
             }
             memcpy(s_shown, s_fb, EPD_FRAMEBUFFER_SIZE);
             app_store_frame(s_fb);

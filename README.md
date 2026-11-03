@@ -65,7 +65,7 @@ After that, updates go over the air: from GitHub releases or by uploading `.pio/
 | --- | --- |
 | No saved network | Opens the access point `EinkClock-XXXX` and shows the setup screen |
 | Saved network unreachable for 30 s | Opens the access point and keeps retrying the saved network; the clock face stays, with the access point details in a strip at the bottom |
-| Connected | Shows its address at the bottom for two minutes; the access point stops one minute after connecting |
+| Connected | Shows its address at the bottom for 30 seconds (adjustable, or until removed); the access point stops one minute after connecting |
 
 The access point is WPA2 with a fresh 8-digit password every time it starts, because it also comes up after power cuts when the router boots slower than the clock, and an open network would let anyone nearby point the clock at their own broker. The panel shows the network name, password, a Wi-Fi QR code and `192.168.4.1`. Phones open the setup page on their own: a small DNS server answers every name with that address.
 

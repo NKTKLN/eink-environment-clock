@@ -66,7 +66,7 @@ void settings_defaults(settings_t *s)
         s->display.metrics[i].id = (metric_id_t)i;
         s->display.metrics[i].enabled = true;
     }
-    s->display.connect_notice_s = 120;
+    s->display.connect_notice_s = 30;
     s->display.temp_unit = TEMP_UNIT_C;
     s->display.pressure_unit = PRESSURE_HPA;
 
