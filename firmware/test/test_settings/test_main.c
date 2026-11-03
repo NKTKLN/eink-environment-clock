@@ -52,8 +52,10 @@ static void test_round_trip_with_secrets(void)
     TEST_ASSERT_EQUAL_STRING("mq", b.mqtt.password);
     TEST_ASSERT_EQUAL(LAYOUT_CO2, b.display.layout);
     TEST_ASSERT_EQUAL(LANG_RU, b.display.language);
-    TEST_ASSERT_EQUAL_MEMORY(a.display.metrics, b.display.metrics,
-                             sizeof(a.display.metrics));
+    for (int i = 0; i < METRIC_COUNT; i++) {
+        TEST_ASSERT_EQUAL(a.display.metrics[i].id, b.display.metrics[i].id);
+        TEST_ASSERT_EQUAL(a.display.metrics[i].enabled, b.display.metrics[i].enabled);
+    }
     TEST_ASSERT_FLOAT_WITHIN(0.01f, -2.3f, b.sensors.temp_offset_c);
 }
 
@@ -136,6 +138,47 @@ static void test_layout_names(void)
     TEST_ASSERT_FALSE(layout_from_name(NULL, &l));
 }
 
+/* Settings saved by an older firmware (fewer keys) and by a newer one
+ * (unknown keys) must load after an update without losing anything the
+ * current firmware knows about. */
+static void test_settings_survive_firmware_updates(void)
+{
+    const char *older =
+        "{\"name\":\"Kitchen\",\"wifi\":{\"ssid\":\"home\",\"password\":\"pw\"},"
+        "\"display\":{\"hour24\":true,\"layout\":\"co2\"},"
+        "\"mqtt\":{\"enabled\":true,\"host\":\"ha.lan\",\"password\":\"mq\"}}";
+    const char *newer =
+        "{\"name\":\"Kitchen\",\"wifi\":{\"ssid\":\"home\",\"password\":\"pw\",\"bssid\":\"x\"},"
+        "\"display\":{\"hour24\":true,\"layout\":\"co2\",\"brightness\":3,"
+        "\"metrics\":[{\"id\":\"co2\",\"enabled\":true},{\"id\":\"pm25\",\"enabled\":true}]},"
+        "\"update\":{\"auto\":true},"
+        "\"mqtt\":{\"enabled\":true,\"host\":\"ha.lan\",\"password\":\"mq\"}}";
+
+    const char *docs[] = { older, newer };
+    for (int i = 0; i < 2; i++) {
+        settings_t s;
+        settings_defaults(&s);
+        apply(&s, docs[i]);
+        TEST_ASSERT_EQUAL_STRING("Kitchen", s.name);
+        TEST_ASSERT_EQUAL_STRING("home", s.wifi.ssid);
+        TEST_ASSERT_EQUAL_STRING("pw", s.wifi.password);
+        TEST_ASSERT_TRUE(s.display.hour24);
+        TEST_ASSERT_EQUAL(LAYOUT_CO2, s.display.layout);
+        TEST_ASSERT_TRUE(s.mqtt.enabled);
+        TEST_ASSERT_EQUAL_STRING("ha.lan", s.mqtt.host);
+        TEST_ASSERT_EQUAL_STRING("mq", s.mqtt.password);
+        /* keys the old firmware did not have get their defaults */
+        TEST_ASSERT_EQUAL(1000, s.sensors.co2_threshold_ppm);
+        TEST_ASSERT_EQUAL(1883, s.mqtt.port);
+        /* every metric still present exactly once */
+        bool seen[METRIC_COUNT] = { false };
+        for (int m = 0; m < METRIC_COUNT; m++) {
+            TEST_ASSERT_FALSE(seen[s.display.metrics[m].id]);
+            seen[s.display.metrics[m].id] = true;
+        }
+    }
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -147,5 +190,6 @@ int main(void)
     RUN_TEST(test_metric_order_repaired);
     RUN_TEST(test_long_strings_truncated);
     RUN_TEST(test_layout_names);
+    RUN_TEST(test_settings_survive_firmware_updates);
     return UNITY_END();
 }

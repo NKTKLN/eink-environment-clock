@@ -263,6 +263,7 @@ static void apply_metrics(settings_t *s, const cJSON *arr)
     }
 
     metric_slot_t m[METRIC_COUNT];
+    memset(m, 0, sizeof(m)); /* no garbage in the padding bytes */
     int n = 0;
     const cJSON *it;
     cJSON_ArrayForEach(it, arr) {

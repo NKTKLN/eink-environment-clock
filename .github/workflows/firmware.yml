@@ -28,6 +28,10 @@ jobs:
 
       - run: pip install platformio
 
+      # Settings live in the nvs partition; moving it would wipe them on update.
+      - name: Partition table keeps NVS in place
+        run: grep -Eq '^nvs,\s*data,\s*nvs,\s*0x9000,\s*0x5000' partitions.csv
+
       # Also installs framework-espidf, whose cJSON the host tests use.
       - name: Build firmware
         run: pio run -e esp32-c3-supermini
