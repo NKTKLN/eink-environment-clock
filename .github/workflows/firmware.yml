@@ -1,0 +1,41 @@
+name: firmware
+
+on:
+  push:
+    paths: ["firmware/**", ".github/workflows/firmware.yml"]
+  pull_request:
+    paths: ["firmware/**", ".github/workflows/firmware.yml"]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: firmware
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            firmware/managed_components
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini', 'firmware/src/idf_component.yml') }}
+
+      - run: pip install platformio
+
+      # Also installs framework-espidf, whose cJSON the host tests use.
+      - name: Build firmware
+        run: pio run -e esp32-c3-supermini
+
+      - name: Host unit tests
+        run: pio test -e native
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: firmware/.pio/build/esp32-c3-supermini/firmware.bin
