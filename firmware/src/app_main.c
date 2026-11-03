@@ -292,17 +292,20 @@ void app_main(void)
                 err = epd_partial_refresh(s_fb);
                 partials_since_full++;
             }
+            last_refresh_ms = app_uptime_ms();
             if (err != ESP_OK) {
+                /* Keep the old "shown" frame so the next tick tries again,
+                 * with a full refresh to bring the panel back in sync. */
                 ESP_LOGE(TAG, "display refresh failed: %s",
                          esp_err_to_name(err));
+                partials_since_full = DISPLAY_FULL_REFRESH_EVERY_N;
             } else {
                 ESP_LOGD(TAG, "%s refresh", full ? "full" : "partial");
+                memcpy(s_shown, s_fb, EPD_FRAMEBUFFER_SIZE);
+                app_store_frame(s_fb);
+                shown_screen = screen;
+                settings_changed_visibly = false;
             }
-            memcpy(s_shown, s_fb, EPD_FRAMEBUFFER_SIZE);
-            app_store_frame(s_fb);
-            shown_screen = screen;
-            settings_changed_visibly = false;
-            last_refresh_ms = app_uptime_ms();
         }
 
         update_co2_led(&settings, data.co2_ppm);
