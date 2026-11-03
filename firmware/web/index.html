@@ -73,7 +73,11 @@ body {
   background: var(--paper);
   font: 15px/1.5 var(--sans);
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
+main { flex: 1; width: 100%; }
 button, input, select { font: inherit; color: inherit; }
 a { color: var(--moss); }
 ::selection { background: var(--moss); color: var(--moss-ink); }
@@ -96,7 +100,7 @@ nav button { border: 0; background: none; padding: 14px 4px 12px; margin-right: 
 nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--moss); }
 
 /* layout */
-main.wrap { padding-top: 28px; padding-bottom: 64px; }
+main.wrap { padding-top: 28px; padding-bottom: 28px; }
 section[role="tabpanel"] { display: none; }
 section[role="tabpanel"].active { display: block; }
 .grid { display: grid; gap: 20px; }
@@ -142,7 +146,44 @@ input[type=text], input[type=password], input[type=number], select {
 }
 input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--moss); outline-offset: 2px; }
 .check { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; cursor: pointer; }
-.check input { width: 18px; height: 18px; accent-color: var(--moss); margin: 0; }
+.check input { margin: 0; }
+
+/* Checkboxes: square, moss when on, pixel check mark */
+input[type=checkbox] {
+  appearance: none; -webkit-appearance: none; flex-shrink: 0;
+  width: 18px; height: 18px; margin: 0; border: 1px solid var(--muted); background: var(--paper);
+  display: inline-grid; place-content: center; cursor: pointer;
+}
+input[type=checkbox]::after {
+  content: ""; width: 10px; height: 6px; margin-top: -3px;
+  border-left: 2px solid var(--moss-ink); border-bottom: 2px solid var(--moss-ink);
+  transform: rotate(-45deg); visibility: hidden;
+}
+input[type=checkbox]:checked { background: var(--moss); border-color: var(--moss); }
+input[type=checkbox]:checked::after { visibility: visible; }
+input[type=checkbox]:hover { border-color: var(--ink); }
+input[type=checkbox]:checked:hover { border-color: var(--moss); }
+
+/* Selects: own chevron drawn with currentColor, so it follows the theme */
+select {
+  appearance: none; -webkit-appearance: none; padding-right: 36px; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: right 18px top 50%, right 13px top 50%;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+}
+select option { background: var(--surface); color: var(--ink); }
+
+/* Number fields without spinner arrows */
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* File picker: hidden native input, styled button + file name */
+.file { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.file input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.file .btn { margin: 0; }
+.file:has(input:focus-visible) .btn { outline: 2px solid var(--moss); outline-offset: 2px; }
+.file-name { font: 13px var(--mono); color: var(--muted); word-break: break-all; }
+.file-name.chosen { color: var(--ink); }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 42px; padding: 10px 18px; border: 1px solid var(--btn-border); background: var(--btn-bg); color: var(--btn-fg); cursor: pointer; font-size: 14px; }
 .btn:hover { background: var(--btn-hover-bg); border-color: var(--btn-hover-bg); color: var(--btn-hover-fg); }
 .btn.ghost { background: none; color: var(--ink); border-color: var(--btn-border); }
@@ -170,14 +211,13 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .metrics li { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--paper); }
 .metrics li:last-child { border-bottom: 0; }
 .metrics li label { flex: 1; display: flex; align-items: center; gap: 10px; cursor: pointer; }
-.metrics li input { width: 18px; height: 18px; accent-color: var(--moss); }
 .metrics li.off label span { color: var(--muted); }
 .icon-btn { border: 1px solid var(--line); background: none; width: 32px; height: 32px; cursor: pointer; }
 .icon-btn:hover:not(:disabled) { border-color: var(--ink); }
 .icon-btn:disabled { opacity: .3; cursor: default; }
 
 /* networks */
-.nets { list-style: none; margin: 0 0 14px; padding: 0; border: 1px solid var(--line); max-height: 260px; overflow: auto; }
+.nets { list-style: none; margin: 0 0 14px; padding: 0; border: 1px solid var(--line); max-height: 260px; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 .nets:empty { display: none; }
 .nets button { display: flex; width: 100%; gap: 12px; align-items: center; padding: 10px 12px; border: 0; border-bottom: 1px solid var(--line); background: var(--paper); cursor: pointer; text-align: left; }
 .nets li:last-child button { border-bottom: 0; }
@@ -188,10 +228,17 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .bars i.on { background: var(--moss); }
 .bars i:nth-child(1) { height: 4px; } .bars i:nth-child(2) { height: 7px; } .bars i:nth-child(3) { height: 10px; } .bars i:nth-child(4) { height: 14px; }
 
-progress { width: 100%; height: 10px; accent-color: var(--moss); }
-details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+progress { appearance: none; -webkit-appearance: none; display: block; width: 100%; height: 8px; margin: 4px 0 14px; border: 1px solid var(--line); background: var(--paper); }
+progress::-webkit-progress-bar { background: var(--paper); }
+progress::-webkit-progress-value { background: var(--moss); }
+progress::-moz-progress-bar { background: var(--moss); }
+details summary { cursor: pointer; color: var(--muted); font-size: 13px; list-style: none; display: inline-flex; align-items: center; gap: 8px; }
+details summary::-webkit-details-marker { display: none; }
+details summary::before { content: ""; width: 0; height: 0; border-left: 5px solid currentColor; border-top: 4px solid transparent; border-bottom: 4px solid transparent; transition: transform 150ms; }
+details[open] > summary::before { transform: rotate(90deg); }
+details summary:hover { color: var(--ink); }
 pre { background: var(--paper); border: 1px solid var(--line); padding: 12px; overflow: auto; font-size: 12px; margin: 10px 0 0; }
-footer { border-top: 1px solid var(--line); padding: 18px 0 30px; font-size: 12px; color: var(--muted); }
+footer { border-top: 1px solid var(--line); padding: 14px 0; font-size: 12px; color: var(--muted); }
 [hidden] { display: none !important; }
 </style>
 </head>
@@ -420,8 +467,13 @@ footer { border-top: 1px solid var(--line); padding: 18px 0 30px; font-size: 12p
           <h2><span class="eyebrow" data-i18n="fw_eyebrow">Firmware</span><span data-i18n="fw_title">Update</span></h2>
           <dl class="kv" id="fw-kv" style="margin-bottom:16px"></dl>
           <form id="ota-form">
-            <label class="field"><span data-i18n="fw_file">firmware.bin</span>
-              <input type="file" id="ota-file" accept=".bin,application/octet-stream" required></label>
+            <div class="field">
+              <label class="file">
+                <input type="file" id="ota-file" accept=".bin,application/octet-stream">
+                <span class="btn ghost" data-i18n="fw_choose">Choose firmware.bin</span>
+                <span class="file-name" id="ota-file-name" data-i18n="fw_none">No file selected</span>
+              </label>
+            </div>
             <progress id="ota-progress" max="100" value="0" hidden></progress>
             <div class="actions"><button class="btn" type="submit" data-i18n="fw_upload">Upload and install</button></div>
             <div class="status" id="ota-status"></div>
@@ -508,7 +560,7 @@ const I18N = {
     co2_threshold: "CO₂ alert above, ppm", temp_offset: "Temperature correction, °C", co2_led: "Blink the LED above the threshold",
     cal_title: "Calibration", cal_hint: "Sets the current reading as 400 ppm. Keep the clock outdoors or by an open window for at least 20 minutes first.",
     cal_btn: "Calibrate to 400 ppm", cal_confirm: "Has the clock been in fresh air for 20 minutes? The current reading becomes 400 ppm.", cal_done: "Calibration command sent.",
-    fw_eyebrow: "Firmware", fw_title: "Update", fw_file: "firmware.bin", fw_upload: "Upload and install",
+    fw_eyebrow: "Firmware", fw_title: "Update", fw_choose: "Choose firmware.bin", fw_none: "No file selected", fw_upload: "Upload and install",
     fw_hint: "If the new firmware fails to start, the clock goes back to the current one.",
     k_version: "Version", k_partition: "Partition", k_idf: "ESP-IDF", k_heap: "Free memory", k_reset: "Last reset", k_mac: "MAC",
     ota_uploading: "Uploading… {0}%", ota_done: "Installed. Restarting…", ota_back: "The clock is back with version {0}.",
@@ -561,7 +613,7 @@ const I18N = {
     co2_threshold: "Тревога CO₂ выше, ppm", temp_offset: "Поправка температуры, °C", co2_led: "Мигать светодиодом выше порога",
     cal_title: "Калибровка", cal_hint: "Текущее показание принимается за 400 ppm. Перед этим держите часы на улице или у открытого окна не меньше 20 минут.",
     cal_btn: "Калибровать на 400 ppm", cal_confirm: "Часы 20 минут на свежем воздухе? Текущее показание станет 400 ppm.", cal_done: "Команда калибровки отправлена.",
-    fw_eyebrow: "Прошивка", fw_title: "Обновление", fw_file: "firmware.bin", fw_upload: "Загрузить и установить",
+    fw_eyebrow: "Прошивка", fw_title: "Обновление", fw_choose: "Выбрать firmware.bin", fw_none: "Файл не выбран", fw_upload: "Загрузить и установить",
     fw_hint: "Если новая прошивка не запустится, часы вернутся к текущей.",
     k_version: "Версия", k_partition: "Раздел", k_idf: "ESP-IDF", k_heap: "Свободная память", k_reset: "Последний сброс", k_mac: "MAC",
     ota_uploading: "Загрузка… {0}%", ota_done: "Установлено. Перезапуск…", ota_back: "Часы снова в сети, версия {0}.",
@@ -1047,6 +1099,20 @@ function system(path, confirmKey) {
 $("#btn-reboot").addEventListener("click", () => system("/api/system/reboot", "confirm_reboot"));
 $("#btn-forget").addEventListener("click", () => system("/api/system/forget-wifi", "confirm_forget"));
 $("#btn-factory").addEventListener("click", () => system("/api/system/factory-reset", "confirm_factory"));
+
+function showFileName() {
+  const f = $("#ota-file").files[0];
+  const el = $("#ota-file-name");
+  el.classList.toggle("chosen", !!f);
+  if (f) {
+    el.removeAttribute("data-i18n");
+    el.textContent = `${f.name} · ${Math.round(f.size / 1024)} KB`;
+  } else {
+    el.dataset.i18n = "fw_none";
+    el.textContent = t("fw_none");
+  }
+}
+$("#ota-file").addEventListener("change", showFileName);
 
 $("#ota-form").addEventListener("submit", e => {
   e.preventDefault();
