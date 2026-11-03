@@ -83,6 +83,11 @@ typedef struct {
         bool discovery;
         char discovery_prefix[32];
     } mqtt;
+
+    struct {
+        bool check; /* look for new GitHub releases once a day */
+        bool auto_install; /* install them at night (03:00-05:00) */
+    } update;
 } settings_t;
 
 #define CO2_THRESHOLD_MIN 400

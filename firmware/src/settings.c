@@ -75,6 +75,9 @@ void settings_defaults(settings_t *s)
 
     s->mqtt.port = 1883;
     s->mqtt.discovery = true;
+
+    s->update.check = true;
+    s->update.auto_install = false;
     strcpy(s->mqtt.discovery_prefix, "homeassistant");
 }
 
@@ -199,6 +202,10 @@ bool settings_sanitize(settings_t *s)
     changed |= strip_mqtt_wildcards(s->mqtt.discovery_prefix);
     if (s->mqtt.discovery_prefix[0] == '\0') {
         strcpy(s->mqtt.discovery_prefix, "homeassistant");
+        changed = true;
+    }
+    if (s->update.auto_install && !s->update.check) {
+        s->update.check = true; /* nothing to install without checking */
         changed = true;
     }
     if (s->name[0] == '\0') {
@@ -350,6 +357,12 @@ void settings_apply_json(settings_t *s, const cJSON *json)
                 sizeof(s->mqtt.discovery_prefix));
     }
 
+    const cJSON *u = cJSON_GetObjectItemCaseSensitive(json, "update");
+    if (cJSON_IsObject(u)) {
+        get_bool(u, "check", &s->update.check);
+        get_bool(u, "auto", &s->update.auto_install);
+    }
+
     settings_sanitize(s);
 }
 
@@ -411,6 +424,10 @@ cJSON *settings_to_json(const settings_t *s, bool include_secrets)
     cJSON_AddStringToObject(m, "prefix", s->mqtt.prefix);
     cJSON_AddBoolToObject(m, "discovery", s->mqtt.discovery);
     cJSON_AddStringToObject(m, "discovery_prefix", s->mqtt.discovery_prefix);
+
+    cJSON *u = cJSON_AddObjectToObject(root, "update");
+    cJSON_AddBoolToObject(u, "check", s->update.check);
+    cJSON_AddBoolToObject(u, "auto", s->update.auto_install);
 
     return root;
 }

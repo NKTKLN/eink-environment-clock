@@ -57,6 +57,8 @@ static void test_round_trip_with_secrets(void)
         TEST_ASSERT_EQUAL(a.display.metrics[i].enabled, b.display.metrics[i].enabled);
     }
     TEST_ASSERT_FLOAT_WITHIN(0.01f, -2.3f, b.sensors.temp_offset_c);
+    TEST_ASSERT_TRUE(b.update.check);
+    TEST_ASSERT_FALSE(b.update.auto_install);
 }
 
 static void test_public_json_hides_secrets(void)

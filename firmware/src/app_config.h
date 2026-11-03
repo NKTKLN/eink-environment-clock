@@ -31,6 +31,10 @@
 
 #define NTP_SERVER "pool.ntp.org"
 
+/* Firmware updates: GitHub releases of this repository, asset name. */
+#define UPDATE_REPO  "NKTKLN/eink-environment-clock"
+#define UPDATE_ASSET "firmware.bin"
+
 #define SENSOR_UPDATE_INTERVAL_S 30   /* Read sensors every 30 seconds */
 #define TIME_SYNC_INTERVAL_S     1800 /* SNTP resync every 30 minutes */
 
