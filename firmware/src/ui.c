@@ -35,6 +35,7 @@ static const char *STRINGS[LANG_COUNT][UI_STR_COUNT] = {
         [UI_STR_UPDATING] = "Updating",
         [UI_STR_UPDATE_HINT] = "Do not unplug the clock",
         [UI_STR_RESTARTING] = "Restarting",
+        [UI_STR_SETUP_STRIP] = "No Wi-Fi. Setup: %s · password %s · %s",
     },
     {
         [UI_STR_CONNECTED] = "Подключено: %s",
@@ -43,6 +44,7 @@ static const char *STRINGS[LANG_COUNT][UI_STR_COUNT] = {
         [UI_STR_UPDATING] = "Обновление",
         [UI_STR_UPDATE_HINT] = "Не отключайте питание",
         [UI_STR_RESTARTING] = "Перезапуск",
+        [UI_STR_SETUP_STRIP] = "Нет Wi-Fi. Настройка: %s · пароль %s · %s",
     },
 };
 

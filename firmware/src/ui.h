@@ -71,6 +71,7 @@ typedef enum {
     UI_STR_UPDATING,
     UI_STR_UPDATE_HINT,
     UI_STR_RESTARTING,
+    UI_STR_SETUP_STRIP, /* printf: AP name, password, address */
     UI_STR_COUNT,
 } ui_str_t;
 

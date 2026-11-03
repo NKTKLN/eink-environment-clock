@@ -277,6 +277,21 @@ static void test_notification_strip(void)
     s.display.layout = LAYOUT_SENSORS;
     n.text = "Open the window";
     render(&n, "notice_sensors");
+
+    /* the "saved network lost" strip must fit without truncation */
+    s.display.layout = LAYOUT_CLASSIC;
+    char strip[128];
+    char lines[2][UI_LINE_MAX];
+    bool trunc;
+    for (int lang = 0; lang < LANG_COUNT; lang++) {
+        s.display.language = (language_t)lang;
+        snprintf(strip, sizeof(strip), ui_str(&s, UI_STR_SETUP_STRIP),
+                 "EinkClock-A1B2", "48213077", "192.168.4.1");
+        ui_wrap(strip, (CANVAS_W - 8) / CANVAS_CHAR_W, 2, lines, &trunc);
+        TEST_ASSERT_FALSE_MESSAGE(trunc, strip);
+        n.text = strip;
+        render(&n, lang == LANG_RU ? "notice_setup_strip_ru" : "notice_setup_strip_en");
+    }
 }
 
 static void test_notification_fullscreen(void)

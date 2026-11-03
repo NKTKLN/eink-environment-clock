@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -105,21 +106,33 @@ static screen_t render(const settings_t *s, const sensor_data_t *shown_data)
         return SCREEN_MESSAGE;
     }
 
+    /* First setup: the whole screen explains how to connect. */
     wifi_status_t ws;
     wifi_mgr_get_status(&ws);
-    if (ws.ap_active && !ws.sta_connected) {
+    bool setup_ap = ws.ap_active && !ws.sta_connected;
+    if (setup_ap && !ws.ap_after_failure) {
         ui_render_setup(s_fb, s, ws.ap_ssid, ws.ap_password, WIFI_AP_IP,
-                        ws.ap_after_failure ? ws.sta_ssid : NULL);
+                        NULL);
         return SCREEN_SETUP;
     }
 
     struct tm now;
     bool time_valid = sensors_get_time(&now);
-    app_notice_t n;
+    static app_notice_t n;
+    static char strip[128];
     ui_notice_t notice = { 0 };
-    if (app_get_notice(&n, NULL)) {
+    bool has_notice = app_get_notice(&n, NULL);
+    if (has_notice) {
         notice.text = n.text;
         notice.fullscreen = n.fullscreen;
+    }
+    /* Saved network lost: keep the clock running, put the access point
+     * details in the bottom strip (a user notification still wins). */
+    if (setup_ap && (!has_notice || n.is_system)) {
+        snprintf(strip, sizeof(strip), ui_str(s, UI_STR_SETUP_STRIP),
+                 ws.ap_ssid, ws.ap_password, WIFI_AP_IP);
+        notice.text = strip;
+        notice.fullscreen = false;
     }
     ui_render_clock(s_fb, s, &now, time_valid, shown_data, &notice);
     return SCREEN_CLOCK;
