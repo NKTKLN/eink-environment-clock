@@ -1,4 +1,5 @@
 #include "dns_server.h"
+#include "dns_packet.h"
 
 #include <stdatomic.h>
 #include <string.h>
@@ -17,61 +18,6 @@ static const char *TAG = "dns";
 
 static atomic_bool s_running;
 static TaskHandle_t s_task;
-
-/* Skips the QNAME labels; returns the offset after it or -1. */
-static int skip_name(const uint8_t *buf, int len, int off)
-{
-    while (off < len) {
-        uint8_t l = buf[off];
-        if (l == 0) {
-            return off + 1;
-        }
-        if ((l & 0xC0) == 0xC0) {
-            return off + 2;
-        }
-        off += l + 1;
-    }
-    return -1;
-}
-
-static int build_reply(uint8_t *buf, int len)
-{
-    if (len < 12) {
-        return -1;
-    }
-    uint16_t qdcount = (uint16_t)(buf[4] << 8 | buf[5]);
-    if ((buf[2] & 0x80) || qdcount != 1) {
-        return -1; /* not a query, or more than one question */
-    }
-
-    int qend = skip_name(buf, len, 12);
-    if (qend < 0 || qend + 4 > len) {
-        return -1;
-    }
-    uint16_t qtype = (uint16_t)(buf[qend] << 8 | buf[qend + 1]);
-    int out = qend + 4; /* drop anything after the question */
-
-    buf[2] = 0x84 | (buf[2] & 0x01); /* response, authoritative, keep RD */
-    buf[3] = 0x80;                    /* RA, no error */
-    buf[6] = buf[7] = 0;              /* ANCOUNT */
-    buf[8] = buf[9] = 0;              /* NSCOUNT */
-    buf[10] = buf[11] = 0;            /* ARCOUNT */
-
-    if (qtype == 1 /* A */ && out + 16 <= DNS_MAX_LEN) {
-        const uint8_t answer[] = {
-            0xC0, 0x0C,             /* name: pointer to the question */
-            0x00, 0x01, 0x00, 0x01, /* type A, class IN */
-            0x00, 0x00, 0x00, 0x3C, /* TTL 60 s */
-            0x00, 0x04,             /* RDLENGTH */
-        };
-        memcpy(buf + out, answer, sizeof(answer));
-        uint32_t ip = AP_IP;
-        memcpy(buf + out + sizeof(answer), &ip, 4);
-        out += sizeof(answer) + 4;
-        buf[7] = 1;
-    }
-    return out;
-}
 
 static void dns_task(void *arg)
 {
@@ -104,7 +50,7 @@ static void dns_task(void *arg)
         if (len <= 0) {
             continue;
         }
-        int out = build_reply(buf, len);
+        int out = dns_build_reply(buf, len, sizeof(buf), AP_IP);
         if (out > 0) {
             sendto(sock, buf, out, 0, (struct sockaddr *)&from, from_len);
         }
