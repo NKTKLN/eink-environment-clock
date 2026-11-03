@@ -2,6 +2,8 @@ name: firmware
 
 on:
   push:
+    branches: ["**"]
+    tags: ["[0-9]+.[0-9]+.[0-9]+*"]
     paths: ["firmware/**", ".github/workflows/firmware.yml"]
   pull_request:
     paths: ["firmware/**", ".github/workflows/firmware.yml"]
@@ -9,9 +11,15 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # publishing releases on tags
     defaults:
       run:
         working-directory: firmware
+    env:
+      # Tag builds report the tag as their version; the clock compares it
+      # with the latest GitHub release to offer updates.
+      FIRMWARE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -43,3 +51,11 @@ jobs:
         with:
           name: firmware
           path: firmware/.pio/build/esp32-c3-supermini/firmware.bin
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: firmware/.pio/build/esp32-c3-supermini/firmware.bin
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
