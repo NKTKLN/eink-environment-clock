@@ -1,8 +1,5 @@
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-
 /* =====================================================
  * Pin configuration (ESP32-C3 Super Mini)
  * ===================================================== */
@@ -27,34 +24,27 @@
 #define PIN_LED 0
 
 /* =====================================================
- * Application configuration
+ * Fixed configuration. Everything a user may want to change (time zone,
+ * 12/24 h, units, CO2 threshold, Wi-Fi, MQTT, ...) lives in settings.c and
+ * is edited through the web interface.
  * ===================================================== */
-
-#define USE_12_HOUR_FORMAT true
-
-#define USE_WIFI_TIME_SYNC true
-#include "secrets.h" /* defines WIFI_SSID / WIFI_PASSWORD, not tracked by git */
 
 #define NTP_SERVER "pool.ntp.org"
-#define TIME_ZONE  "MSK-3" /* POSIX TZ string */
 
-/* BME280 */
-#define BME280_TEMP_OFFSET_C (-2.3f)
+#define SENSOR_UPDATE_INTERVAL_S 30   /* Read sensors every 30 seconds */
+#define TIME_SYNC_INTERVAL_S     1800 /* SNTP resync every 30 minutes */
 
-/* MH-Z19 */
-#define CO2_ALERT_THRESHOLD_PPM 1000
-
-/* =====================================================
- * Timing configuration
- * ===================================================== */
-
-#define SENSOR_UPDATE_INTERVAL_S   30   /* Read sensors every 30 seconds */
-#define TIME_SYNC_INTERVAL_S       1800 /* SNTP resync every 30 minutes */
+/* Wi-Fi: how long to try the saved network before opening the setup
+ * access point, and how long the AP stays up after a successful
+ * connection so the setup page can show the new address. */
+#define WIFI_FALLBACK_AP_S     30
+#define WIFI_AP_LINGER_S       60
+#define WIFI_CONNECTED_NOTICE_S 120
 
 /* Display refresh policy (anti-ghosting):
- *  - full (flashing) refresh on boot;
+ *  - full (flashing) refresh on boot and when the screen type changes;
  *  - differential (partial) refresh when the displayed data changes,
  *    but not more often than once in DISPLAY_MIN_UPDATE_PERIOD_S;
  *  - forced full refresh after DISPLAY_FULL_REFRESH_EVERY_N partials. */
-#define DISPLAY_MIN_UPDATE_PERIOD_S   10
-#define DISPLAY_FULL_REFRESH_EVERY_N  10
+#define DISPLAY_MIN_UPDATE_PERIOD_S  10
+#define DISPLAY_FULL_REFRESH_EVERY_N 10
