@@ -36,6 +36,11 @@ static void test_origins(void)
     TEST_ASSERT_TRUE(http_origin_allowed("http://10.64.66.3", "10.64.66.3"));
     TEST_ASSERT_TRUE(http_origin_allowed("http://clock.local:8080", "clock.local:8080"));
     TEST_ASSERT_TRUE(http_origin_allowed("http://Clock.Local", "clock.local"));
+    /* the default port may be written on one side only */
+    TEST_ASSERT_TRUE(http_origin_allowed("http://10.64.66.3", "10.64.66.3:80"));
+    TEST_ASSERT_TRUE(http_origin_allowed("http://10.64.66.3:80", "10.64.66.3"));
+    TEST_ASSERT_FALSE(http_origin_allowed("http://10.64.66.3", "10.64.66.33"));
+    TEST_ASSERT_FALSE(http_origin_allowed("http://10.64.66.3", "10.64.66.3:8080"));
 
     TEST_ASSERT_FALSE(http_origin_allowed("https://evil.example.com", "10.64.66.3"));
     TEST_ASSERT_FALSE(http_origin_allowed("http://10.64.66.3:81", "10.64.66.3"));

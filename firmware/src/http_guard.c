@@ -81,6 +81,13 @@ bool http_host_allowed(const char *host)
     return false;
 }
 
+/* Length without a trailing default port, so "a:80" equals "a". */
+static size_t without_port_80(const char *s)
+{
+    size_t n = strlen(s);
+    return n > 3 && strcmp(s + n - 3, ":80") == 0 ? n - 3 : n;
+}
+
 bool http_origin_allowed(const char *origin, const char *host)
 {
     if (origin == NULL || origin[0] == '\0') {
@@ -95,5 +102,6 @@ bool http_origin_allowed(const char *origin, const char *host)
         return false;
     }
     p += 3;
-    return strcasecmp(p, host) == 0;
+    size_t a = without_port_80(p), b = without_port_80(host);
+    return a == b && strncasecmp(p, host, a) == 0;
 }
