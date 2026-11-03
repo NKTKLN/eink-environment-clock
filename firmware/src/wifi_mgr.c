@@ -157,6 +157,17 @@ static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id,
         connect_now();
         break;
 
+    case WIFI_EVENT_STA_CONNECTED: {
+        static const char *AUTH[] = { "open", "WEP", "WPA", "WPA2", "WPA/WPA2",
+                                      "WPA2-Enterprise", "WPA3", "WPA2/WPA3" };
+        wifi_event_sta_connected_t *e = data;
+        ESP_LOGI(TAG, "associated with %02x:%02x:%02x:%02x:%02x:%02x, channel %d, %s",
+                 e->bssid[0], e->bssid[1], e->bssid[2], e->bssid[3], e->bssid[4],
+                 e->bssid[5], e->channel,
+                 e->authmode < sizeof(AUTH) / sizeof(AUTH[0]) ? AUTH[e->authmode] : "other");
+        break;
+    }
+
     case WIFI_EVENT_STA_DISCONNECTED: {
         wifi_event_sta_disconnected_t *e = data;
         bool was_connected;
@@ -217,7 +228,8 @@ static void on_got_ip(void *arg, esp_event_base_t base, int32_t id,
 
     net_time_start();
 
-    settings_t s;
+    /* Runs on the small system event task: keep big structs off its stack. */
+    static settings_t s;
     settings_get(&s);
     if (s.display.connect_notice_s != 0) {
         char msg[64];
@@ -254,6 +266,9 @@ static void apply_sta_config(const char *ssid, const char *password)
     cfg.sta.threshold.authmode =
         password[0] ? WIFI_AUTH_WPA_PSK : WIFI_AUTH_OPEN;
     cfg.sta.pmf_cfg.capable = true;
+    /* WPA3 routers differ in how they derive the SAE key; without this the
+     * first attempts after boot failed with AUTH_FAIL (reason 202). */
+    cfg.sta.sae_pwe_h2e = WPA3_SAE_PWE_BOTH;
     cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
     cfg.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &cfg));
