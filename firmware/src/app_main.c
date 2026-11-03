@@ -15,6 +15,7 @@
 #include "app_config.h"
 #include "app_state.h"
 #include "boot_guard.h"
+#include "diag.h"
 #include "log_capture.h"
 #include "epd_ssd1680.h"
 #include "mqtt_ha.h"
@@ -30,6 +31,7 @@ static const char *TAG = "app";
 
 #define TICK_MS              500
 #define OTA_CONFIRM_AFTER_MS 30000
+#define HEALTH_LOG_PERIOD_MS (5 * 60 * 1000)
 
 typedef enum {
     SCREEN_NONE,
@@ -176,6 +178,9 @@ void app_main(void)
     ESP_ERROR_CHECK(gpio_config(&led_cfg));
 
     sensors_init();
+    if (sensors_set_system_time_from_rtc()) {
+        ESP_LOGI(TAG, "system time set from the RTC");
+    }
 
     ESP_ERROR_CHECK(epd_init());
     s_fb = heap_caps_malloc(EPD_FRAMEBUFFER_SIZE, MALLOC_CAP_DMA);
@@ -198,6 +203,7 @@ void app_main(void)
     bool guard_cleared = false;
     bool ota_confirmed = false;
     bool settings_changed_visibly = false;
+    int64_t next_health_ms = 60 * 1000; /* first report once things settled */
 
     if (network_reset) {
         render(&settings, &shown_data);
@@ -219,16 +225,26 @@ void app_main(void)
             ota_confirmed = true;
         }
 
+        if (now_ms >= next_health_ms) {
+            diag_log();
+            next_health_ms = now_ms + HEALTH_LOG_PERIOD_MS;
+        }
+
         if (settings_generation() != settings_gen) {
             settings_t old = settings;
             settings_gen = settings_generation();
             settings_get(&settings);
             if (strcmp(old.display.tz_posix, settings.display.tz_posix) != 0) {
+                /* The RTC keeps local time. Read it in the old zone, then
+                 * write the same instant back in the new one, so the shown
+                 * time is right even without a network. */
+                bool have_time = net_time_valid() ||
+                                 sensors_set_system_time_from_rtc();
                 apply_timezone(&settings);
-                /* The RTC keeps local time: rewrite it for the new zone. */
-                if (net_time_valid()) {
+                if (have_time) {
                     sensors_sync_rtc();
                 }
+                ESP_LOGI(TAG, "time zone changed to %s", settings.display.tz_posix);
             }
             settings_changed_visibly =
                 old.display.invert != settings.display.invert ||

@@ -20,3 +20,7 @@ bool sensors_get_time(struct tm *out);
 
 /* Writes the current system time (after SNTP) into the RTC. */
 void sensors_sync_rtc(void);
+
+/* Sets the system clock from the RTC (which keeps local time in the
+ * current TZ). Lets time() work before SNTP and offline. */
+bool sensors_set_system_time_from_rtc(void);

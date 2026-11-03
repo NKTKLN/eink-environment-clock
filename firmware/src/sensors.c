@@ -1,6 +1,7 @@
 #include "sensors.h"
 
 #include <string.h>
+#include <sys/time.h>
 
 #include "esp_log.h"
 
@@ -130,6 +131,23 @@ bool sensors_get_time(struct tm *out)
     time_t t = time(NULL);
     localtime_r(&t, out);
     return out->tm_year >= 120;
+}
+
+bool sensors_set_system_time_from_rtc(void)
+{
+    struct tm local;
+    if (!s_rtc_ok || ds3231_get_time(&s_rtc, &local) != ESP_OK ||
+        local.tm_year < 120) {
+        return false;
+    }
+    local.tm_isdst = -1;
+    time_t t = mktime(&local); /* interprets local time with the current TZ */
+    if (t == (time_t)-1) {
+        return false;
+    }
+    struct timeval tv = { .tv_sec = t };
+    settimeofday(&tv, NULL);
+    return true;
 }
 
 void sensors_sync_rtc(void)
