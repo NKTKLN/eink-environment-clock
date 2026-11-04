@@ -25,7 +25,9 @@ typedef struct {
 #define HA_TOPIC_STATE        "state"
 #define HA_TOPIC_STATUS       "status" /* online/offline, LWT */
 #define HA_TOPIC_NOTIFY       "notify" /* JSON {"text","ttl","fullscreen"} */
-#define HA_TOPIC_NOTIFICATION "notification/set" /* plain text */
+#define HA_TOPIC_NOTIFICATION "notification/set" /* plain text, permanent */
+#define HA_TOPIC_NOTIFICATION_TEMP "notification_temp/set" /* plain text */
+#define HA_TOPIC_NOTIFICATION_TIME "notification_time/set" /* minutes */
 #define HA_TOPIC_COMMAND      "command"
 #define HA_TOPIC_LAYOUT       "layout/set"
 #define HA_TOPIC_THRESHOLD    "co2_threshold/set"
@@ -46,7 +48,9 @@ typedef struct {
     layout_t layout;
     int rssi_dbm; /* 0 = unknown */
     long uptime_s;
-    const char *notification;
+    const char *notification;      /* permanent message, "" if none */
+    const char *notification_temp; /* temporary message, "" if none */
+    int temp_notice_min;           /* duration of temporary messages */
 } ha_state_t;
 
 /* State JSON published to <base>/state. Caller frees with cJSON_free(). */

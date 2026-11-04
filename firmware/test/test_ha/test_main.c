@@ -52,6 +52,7 @@ static void test_discovery_payload(void)
 
     const char *keys[] = { "temperature", "humidity", "pressure", "co2",
                            "rssi", "uptime", "co2_high", "notification",
+                           "notification_temp", "notification_time",
                            "clear_notification", "reboot", "calibrate_co2",
                            "layout", "co2_threshold" };
     for (size_t i = 0; i < sizeof(keys) / sizeof(keys[0]); i++) {
@@ -65,6 +66,11 @@ static void test_discovery_payload(void)
     TEST_ASSERT_EQUAL_STRING("carbon_dioxide", str(cmp(root, "co2"), "device_class"));
     TEST_ASSERT_EQUAL_STRING("eink-clock/a1b2c3/notification/set",
                              str(cmp(root, "notification"), "command_topic"));
+    TEST_ASSERT_EQUAL_STRING("eink-clock/a1b2c3/notification_temp/set",
+                             str(cmp(root, "notification_temp"), "command_topic"));
+    TEST_ASSERT_EQUAL_STRING("eink-clock/a1b2c3/notification_time/set",
+                             str(cmp(root, "notification_time"), "command_topic"));
+    TEST_ASSERT_EQUAL_STRING("min", str(cmp(root, "notification_time"), "unit_of_measurement"));
     TEST_ASSERT_EQUAL_STRING("reboot", str(cmp(root, "reboot"), "payload_press"));
     TEST_ASSERT_EQUAL(LAYOUT_COUNT,
                       cJSON_GetArraySize(cJSON_GetObjectItem(cmp(root, "layout"), "options")));
@@ -83,6 +89,8 @@ static void test_state_payload(void)
         .rssi_dbm = -60,
         .uptime_s = 42,
         .notification = "hi",
+        .notification_temp = "",
+        .temp_notice_min = 15,
     };
     char *text = ha_state_payload(&st);
     cJSON *root = cJSON_Parse(text);
@@ -92,6 +100,8 @@ static void test_state_payload(void)
     TEST_ASSERT_EQUAL_STRING("ON", str(root, "co2_high"));
     TEST_ASSERT_EQUAL_STRING("co2", str(root, "layout"));
     TEST_ASSERT_EQUAL_STRING("hi", str(root, "notification"));
+    TEST_ASSERT_EQUAL_STRING("", str(root, "notification_temp"));
+    TEST_ASSERT_EQUAL(15, cJSON_GetObjectItem(root, "notification_time")->valueint);
     cJSON_Delete(root);
     cJSON_free(text);
 

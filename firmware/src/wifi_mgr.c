@@ -334,6 +334,9 @@ esp_err_t wifi_mgr_start(void)
 
     esp_err_t err = esp_wifi_start();
     if (err == ESP_OK) {
+        /* USB powered: modem sleep only adds latency and, with a weak
+         * signal, stalls page transfers past the HTTP send timeout. */
+        esp_wifi_set_ps(WIFI_PS_NONE);
         start_mdns();
     }
     return err;

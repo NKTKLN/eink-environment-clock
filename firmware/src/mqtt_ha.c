@@ -63,15 +63,18 @@ static void publish_state(void)
     settings_get(&s);
     wifi_status_t ws;
     wifi_mgr_get_status(&ws);
-    app_notice_t notice;
+    static app_notice_t notice; /* 260 bytes, keep it off the stack */
     bool has_notice = app_get_notice(&notice, NULL) && !notice.is_system;
+    bool temporary = has_notice && notice.remaining_s >= 0;
 
     ha_state_t st = {
         .co2_threshold_ppm = s.sensors.co2_threshold_ppm,
         .layout = s.display.layout,
         .rssi_dbm = ws.rssi,
         .uptime_s = (long)(app_uptime_ms() / 1000),
-        .notification = has_notice ? notice.text : "",
+        .notification = has_notice && !temporary ? notice.text : "",
+        .notification_temp = temporary ? notice.text : "",
+        .temp_notice_min = s.display.temp_notice_min,
     };
     app_get_sensors(&st.data);
 
@@ -88,8 +91,9 @@ static void publish_state(void)
 static void subscribe_all(const settings_t *s)
 {
     const char *subs[] = { HA_TOPIC_NOTIFY, HA_TOPIC_NOTIFICATION,
-                           HA_TOPIC_COMMAND, HA_TOPIC_LAYOUT,
-                           HA_TOPIC_THRESHOLD };
+                           HA_TOPIC_NOTIFICATION_TEMP,
+                           HA_TOPIC_NOTIFICATION_TIME, HA_TOPIC_COMMAND,
+                           HA_TOPIC_LAYOUT, HA_TOPIC_THRESHOLD };
     char t[96];
     for (size_t i = 0; i < sizeof(subs) / sizeof(subs[0]); i++) {
         topic(t, sizeof(t), subs[i]);
@@ -141,6 +145,10 @@ static void handle_message(const esp_mqtt_event_t *e)
         app_notify(cmd.text, cmd.ttl_s, cmd.fullscreen);
         app_request_redraw();
         break;
+    case HA_ACT_NOTIFY_TEMP:
+        app_notify(cmd.text, s.display.temp_notice_min * 60, false);
+        app_request_redraw();
+        break;
     case HA_ACT_CLEAR:
         app_notify_clear();
         app_request_redraw();
@@ -158,6 +166,10 @@ static void handle_message(const esp_mqtt_event_t *e)
     case HA_ACT_THRESHOLD:
         patch_setting("sensors", "co2_threshold_ppm",
                       cJSON_CreateNumber(cmd.threshold));
+        break;
+    case HA_ACT_TEMP_TIME:
+        patch_setting("display", "temp_notice_min",
+                      cJSON_CreateNumber(cmd.minutes));
         break;
     }
     s_publish_now = true;
@@ -306,6 +318,14 @@ void mqtt_ha_tick(bool sensors_updated)
     if (!s_connected) {
         return;
     }
+    /* An expired temporary message must leave the HA text entity too. */
+    static bool had_notice;
+    bool has_notice = app_get_notice(NULL, NULL);
+    if (has_notice != had_notice) {
+        had_notice = has_notice;
+        s_publish_now = true;
+    }
+
     if (s_publish_now || sensors_updated ||
         app_uptime_ms() - s_last_publish_ms >=
             SENSOR_UPDATE_INTERVAL_S * 1000) {

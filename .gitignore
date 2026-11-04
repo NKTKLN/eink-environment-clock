@@ -2,3 +2,4 @@ tmp/
 .pio/
 .vscode/
 .playwright-mcp/
+firmware/dist/

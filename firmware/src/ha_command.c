@@ -37,6 +37,31 @@ static void small_copy(char *dst, size_t size, const char *data, int len)
     dst[n] = '\0';
 }
 
+/* Plain text from a HA text entity, even if it looks like JSON. */
+static void plain_text(char *dst, size_t size, const char *data, int len)
+{
+    size_t n = (size_t)len < size - 1 ? (size_t)len : size - 1;
+    while (n > 0 && n < (size_t)len && ((unsigned char)data[n] & 0xC0) == 0x80) {
+        n--; /* do not cut a UTF-8 character */
+    }
+    memcpy(dst, data, n);
+    dst[n] = '\0';
+}
+
+/* Number entity payload ("1250", "1250.0") within [min, max]. */
+static bool parse_number(const char *data, int len, int min, int max, int *out)
+{
+    char buf[24];
+    small_copy(buf, sizeof(buf), data, len);
+    char *end;
+    float v = strtof(buf, &end);
+    if (end == buf || *end != '\0' || v < min || v > max) {
+        return false;
+    }
+    *out = (int)(v + 0.5f);
+    return true;
+}
+
 void ha_parse_command(const char *base, const char *discovery_prefix,
                       const char *topic, int topic_len, const char *data,
                       int data_len, ha_command_t *out)
@@ -61,17 +86,14 @@ void ha_parse_command(const char *base, const char *discovery_prefix,
     }
 
     if (topic_is(topic, topic_len, base, HA_TOPIC_NOTIFICATION)) {
-        /* Plain text from the HA text entity, even if it looks like JSON. */
-        size_t n = (size_t)data_len < sizeof(out->text) - 1
-                       ? (size_t)data_len
-                       : sizeof(out->text) - 1;
-        while (n > 0 && n < (size_t)data_len &&
-               ((unsigned char)data[n] & 0xC0) == 0x80) {
-            n--; /* do not cut a UTF-8 character */
-        }
-        memcpy(out->text, data, n);
-        out->text[n] = '\0';
-        out->action = HA_ACT_NOTIFY;
+        plain_text(out->text, sizeof(out->text), data, data_len);
+        out->action = HA_ACT_NOTIFY; /* permanent: ttl 0 */
+        return;
+    }
+
+    if (topic_is(topic, topic_len, base, HA_TOPIC_NOTIFICATION_TEMP)) {
+        plain_text(out->text, sizeof(out->text), data, data_len);
+        out->action = HA_ACT_NOTIFY_TEMP;
         return;
     }
 
@@ -97,16 +119,18 @@ void ha_parse_command(const char *base, const char *discovery_prefix,
     }
 
     if (topic_is(topic, topic_len, base, HA_TOPIC_THRESHOLD)) {
-        small_copy(buf, sizeof(buf), data, data_len);
-        char *end;
-        float v = strtof(buf, &end);
-        if (end == buf || *end != '\0' || v < CO2_THRESHOLD_MIN ||
-            v > CO2_THRESHOLD_MAX) {
-            out->action = HA_ACT_INVALID;
-        } else {
-            out->threshold = (int)(v + 0.5f);
-            out->action = HA_ACT_THRESHOLD;
-        }
+        out->action = parse_number(data, data_len, CO2_THRESHOLD_MIN,
+                                   CO2_THRESHOLD_MAX, &out->threshold)
+                           ? HA_ACT_THRESHOLD
+                           : HA_ACT_INVALID;
+        return;
+    }
+
+    if (topic_is(topic, topic_len, base, HA_TOPIC_NOTIFICATION_TIME)) {
+        out->action = parse_number(data, data_len, TEMP_NOTICE_MIN_MIN,
+                                   TEMP_NOTICE_MAX_MIN, &out->minutes)
+                           ? HA_ACT_TEMP_TIME
+                           : HA_ACT_INVALID;
         return;
     }
 }

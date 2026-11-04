@@ -67,6 +67,7 @@ void settings_defaults(settings_t *s)
         s->display.metrics[i].enabled = true;
     }
     s->display.connect_notice_s = 30;
+    s->display.temp_notice_min = 10;
     s->display.temp_unit = TEMP_UNIT_C;
     s->display.pressure_unit = PRESSURE_HPA;
 
@@ -182,6 +183,14 @@ bool settings_sanitize(settings_t *s)
         changed = true;
     } else if (s->display.connect_notice_s > CONNECT_NOTICE_MAX) {
         s->display.connect_notice_s = CONNECT_NOTICE_MAX;
+        changed = true;
+    }
+
+    if (s->display.temp_notice_min < TEMP_NOTICE_MIN_MIN) {
+        s->display.temp_notice_min = TEMP_NOTICE_MIN_MIN;
+        changed = true;
+    } else if (s->display.temp_notice_min > TEMP_NOTICE_MAX_MIN) {
+        s->display.temp_notice_min = TEMP_NOTICE_MAX_MIN;
         changed = true;
     }
 
@@ -339,6 +348,7 @@ void settings_apply_json(settings_t *s, const cJSON *json)
         get_bool(d, "invert", &s->display.invert);
         get_bool(d, "rotate180", &s->display.rotate180);
         get_int(d, "connect_notice_s", &s->display.connect_notice_s);
+        get_int(d, "temp_notice_min", &s->display.temp_notice_min);
         get_enum(d, "temp_unit", TEMP_UNIT_NAMES, TEMP_UNIT_COUNT,
                  (int *)&s->display.temp_unit);
         get_enum(d, "pressure_unit", PRESSURE_NAMES, PRESSURE_UNIT_COUNT,
@@ -409,6 +419,7 @@ cJSON *settings_to_json(const settings_t *s, bool include_secrets)
     cJSON_AddBoolToObject(d, "invert", s->display.invert);
     cJSON_AddBoolToObject(d, "rotate180", s->display.rotate180);
     cJSON_AddNumberToObject(d, "connect_notice_s", s->display.connect_notice_s);
+    cJSON_AddNumberToObject(d, "temp_notice_min", s->display.temp_notice_min);
     cJSON_AddStringToObject(d, "temp_unit",
                             TEMP_UNIT_NAMES[s->display.temp_unit]);
     cJSON_AddStringToObject(d, "pressure_unit",

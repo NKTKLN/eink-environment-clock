@@ -44,6 +44,11 @@ jobs:
       - name: Build firmware
         run: pio run -e esp32-c3-supermini
 
+      # Copied right away: later pio runs may clean .pio/build, and both
+      # upload actions skip hidden directories such as .pio.
+      - name: Collect firmware
+        run: mkdir -p dist && cp .pio/build/esp32-c3-supermini/firmware.bin dist/
+
       - name: Host unit tests
         run: pio test -e native
 
@@ -54,12 +59,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: firmware
-          path: firmware/.pio/build/esp32-c3-supermini/firmware.bin
+          path: firmware/dist/firmware.bin
+          if-no-files-found: error
 
       - name: Publish release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
-          files: firmware/.pio/build/esp32-c3-supermini/firmware.bin
+          files: firmware/dist/firmware.bin
+          fail_on_unmatched_files: true
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
