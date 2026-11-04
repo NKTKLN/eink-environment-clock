@@ -1,3 +1,4 @@
 tmp/
 .pio/
 .vscode/
+.playwright-mcp/

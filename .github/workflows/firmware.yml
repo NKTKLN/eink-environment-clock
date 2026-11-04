@@ -1,0 +1,65 @@
+name: firmware
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["[0-9]+.[0-9]+.[0-9]+*"]
+    paths: ["firmware/**", ".github/workflows/firmware.yml"]
+  pull_request:
+    paths: ["firmware/**", ".github/workflows/firmware.yml"]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # publishing releases on tags
+    defaults:
+      run:
+        working-directory: firmware
+    env:
+      # Tag builds report the tag as their version; the clock compares it
+      # with the latest GitHub release to offer updates.
+      FIRMWARE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            firmware/managed_components
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini', 'firmware/src/idf_component.yml') }}
+
+      - run: pip install platformio
+
+      # Settings live in the nvs partition; moving it would wipe them on update.
+      - name: Partition table keeps NVS in place
+        run: grep -Eq '^nvs,\s*data,\s*nvs,\s*0x9000,\s*0x5000' partitions.csv
+
+      # Also installs framework-espidf, whose cJSON the host tests use.
+      - name: Build firmware
+        run: pio run -e esp32-c3-supermini
+
+      - name: Host unit tests
+        run: pio test -e native
+
+      # The same tests plus the fuzzers under AddressSanitizer and UBSan.
+      - name: Host tests with sanitizers
+        run: pio test -e native-asan
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: firmware/.pio/build/esp32-c3-supermini/firmware.bin
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: firmware/.pio/build/esp32-c3-supermini/firmware.bin
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

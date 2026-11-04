@@ -2,6 +2,26 @@
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
 
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# OTA: boot the new image once, roll back unless it confirms itself
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
 
 CONFIG_ESP_TASK_WDT_TIMEOUT_S=10
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+# Wi-Fi and IP event handlers run on this task; the default 2304 bytes left
+# only ~120 bytes free in a soak test.
+CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=4096
+
+# HTTP server: longer headers (browsers send many), more URI handlers
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+CONFIG_HTTPD_MAX_URI_LEN=512
+
+# Keep debug messages in the image so the web log level switch can turn
+# them on; the default level stays info.
+CONFIG_LOG_MAXIMUM_LEVEL_DEBUG=y
+
+CONFIG_LWIP_LOCAL_HOSTNAME="eink-clock"
+# HTTP server (5 + 3 internal), captive DNS, MQTT, mDNS
+CONFIG_LWIP_MAX_SOCKETS=16

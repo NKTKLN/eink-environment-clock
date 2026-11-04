@@ -1,3 +1,16 @@
 cmake_minimum_required(VERSION 3.16.0)
+# Release builds get the version from the git tag (see .github/workflows).
+if(DEFINED ENV{FIRMWARE_VERSION} AND NOT "$ENV{FIRMWARE_VERSION}" STREQUAL "")
+    set(PROJECT_VER "$ENV{FIRMWARE_VERSION}")
+else()
+    # Local builds use the version commitizen keeps in .cz.toml.
+    file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/../.cz.toml" CZ_VERSION REGEX "^version *= *\"")
+    string(REGEX REPLACE "^version *= *\"([^\"]+)\".*" "\\1" CZ_VERSION "${CZ_VERSION}")
+    if(CZ_VERSION)
+        set(PROJECT_VER "${CZ_VERSION}")
+    else()
+        set(PROJECT_VER "0.0.0")
+    endif()
+endif()
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(eink-environment-clock)

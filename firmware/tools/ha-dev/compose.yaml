@@ -1,0 +1,20 @@
+# Local Home Assistant + Mosquitto for testing the clock's MQTT integration.
+#   docker compose up -d        then open http://localhost:8123
+# Point the clock's MQTT broker at this computer's address, port 1883.
+# The broker accepts anonymous clients: keep it to a test network.
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./config:/config
+    environment:
+      TZ: Europe/Moscow

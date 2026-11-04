@@ -1,0 +1,1645 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#ebe9e2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121517" media="(prefers-color-scheme: dark)">
+<script>
+/* Resolve the theme before the first paint to avoid a light flash. */
+(function () {
+  var mode = localStorage.getItem("theme") || "auto";
+  var dark = mode === "dark" || (mode === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+})();
+</script>
+<title>E-Ink Clock</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Cpath fill='%233f5f45' d='M10 2h4v1h-4zM2 3h3v1h-3zM9 3h5v1h-5zM2 4h5v1h-5zM8 4h6v1h-6zM2 5h6v1h-6zM9 5h5v1h-5zM2 6h6v1h-6zM10 6h3v1h-3zM3 7h6v1h-6zM10 7h1v1h-1zM4 8h5v1h-5zM6 9h3v1h-3zM7 10h2v1h-2zM7 11h2v1h-2zM7 12h2v1h-2zM7 13h2v1h-2z'/%3E%3C/svg%3E">
+<style>
+:root {
+  color-scheme: light;
+  --ink: #14181a;
+  --paper: #ebe9e2;
+  --surface: #f4f3ed;
+  --sage: #d7ddcf;
+  --line: #cecec3;
+  --muted: #5f635b;
+  --moss: #3f5f45;
+  --moss-ink: #ebe9e2;
+  --alarm: #a85f24;
+  --alarm-ink: #f6efe6;
+  --screen: #f4f3ed;
+  --bezel: #14181a;
+  --btn-bg: #14181a;
+  --btn-fg: #ebe9e2;
+  --btn-border: #14181a;
+  --btn-hover-bg: #3f5f45;
+  --btn-hover-fg: #ebe9e2;
+  --sans: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+/* "auto" is resolved to light/dark by the script in <head>. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #e4e2da;
+  --paper: #121517;
+  --surface: #1a1e20;
+  --sage: #223027;
+  --line: #2d3336;
+  --muted: #9a9f95;
+  --moss: #8db594;
+  --moss-ink: #121517;
+  --alarm: #d68f52;
+  --alarm-ink: #1b1209;
+  --screen: #d9d7cf;
+  --bezel: #050607;
+  --btn-bg: #27302d;
+  --btn-fg: #e4e2da;
+  --btn-border: #3a4541;
+  --btn-hover-bg: #34503b;
+  --btn-hover-fg: #eef0ea;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--paper); -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+  color: var(--ink); background: var(--paper);
+  font: 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased;
+}
+main { flex: 1; width: 100%; }
+h1, h2 { margin: 0; text-wrap: balance; }
+p { margin: 0; text-wrap: pretty; }
+button, input, select { font: inherit; color: inherit; }
+button, a, label, summary, select { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+a { color: var(--moss); text-underline-offset: 3px; }
+::selection { background: var(--moss); color: var(--moss-ink); }
+:focus-visible { outline: 2px solid var(--moss); outline-offset: 2px; }
+.mono, .label, .value, pre { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+/* Brand rule: small uppercase labels are tracked +0.16em. Used for data labels only. */
+.label { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.muted { color: var(--muted); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: clamp(14px, 3vw, 28px); }
+.skip-link { position: fixed; left: 12px; top: -60px; z-index: 10; padding: 10px 14px; background: var(--btn-bg); color: var(--btn-fg); }
+.skip-link:focus { top: 12px; }
+
+/* header */
+header { border-bottom: 1px solid var(--line); }
+.bar { display: flex; align-items: center; gap: 12px; min-height: 64px; }
+.brand { display: flex; align-items: center; gap: 12px; margin-right: auto; min-width: 0; font-size: 17px; font-weight: 700; }
+.brand svg { width: 24px; height: 24px; color: var(--moss); flex-shrink: 0; }
+.brand span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.switch { display: inline-flex; border: 1px solid var(--line); }
+.switch button {
+  display: inline-grid; place-items: center; min-width: 36px; height: 34px; padding: 0 8px;
+  border: 0; background: none; cursor: pointer; color: var(--muted);
+  font: 12px var(--mono); letter-spacing: .08em;
+}
+.switch button:hover { color: var(--ink); }
+.switch button[aria-pressed="true"] { background: var(--btn-bg); color: var(--btn-fg); }
+.switch svg { width: 16px; height: 16px; }
+nav { display: flex; gap: 24px; overflow-x: auto; scrollbar-width: none; }
+nav button {
+  padding: 14px 2px 12px; border: 0; border-bottom: 2px solid transparent; background: none;
+  color: var(--muted); cursor: pointer; white-space: nowrap;
+}
+nav button:hover { color: var(--ink); }
+nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--moss); }
+
+/* layout */
+main.wrap { padding-block: clamp(16px, 3vw, 32px); }
+[role="tabpanel"] { display: none; }
+[role="tabpanel"].active { display: block; }
+.grid { display: grid; gap: clamp(14px, 2vw, 20px); align-content: start; }
+.cols { grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); align-items: start; }
+.card { background: var(--surface); border: 1px solid var(--line); padding: clamp(14px, 2.4vw, 22px); }
+.card h2 { font-size: clamp(16px, 1.2vw + 11px, 18px); line-height: 1.3; margin-bottom: 16px; }
+.card > p + * { margin-top: 14px; }
+.banner { border: 1px solid var(--moss); background: var(--sage); padding: 14px 18px; margin-bottom: 20px; }
+.banner.alarm { border-color: var(--alarm); }
+.sticky { position: sticky; top: 16px; }
+@media (max-width: 860px) {
+  .sticky { position: static; }
+  .first-on-mobile { order: -1; }
+}
+
+/* e-ink screen */
+.device-wrap { text-align: center; }
+.device { display: inline-block; width: min(100%, 620px); padding: clamp(8px, 1.6vw, 14px); background: var(--bezel); }
+.screen { display: block; width: 100%; height: auto; aspect-ratio: 296 / 128; background: var(--screen); image-rendering: pixelated; image-rendering: crisp-edges; }
+.device-note { margin-top: 10px; font-size: 12px; }
+
+/* readings */
+.readings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+/* four tiles: 4 in a row or 2x2, never 3 + 1 */
+@media (max-width: 700px) { .readings { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.reading { padding: 14px 16px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface); min-width: 0; }
+.reading .label { display: flex; align-items: center; gap: 8px; }
+.reading .value { margin-top: 6px; font-size: clamp(22px, 2.2vw + 12px, 32px); line-height: 1.2; }
+.reading .value small { margin-left: 4px; font-size: 13px; color: var(--muted); }
+.reading.alarm { background: var(--alarm); color: var(--alarm-ink); }
+.reading.alarm .label, .reading.alarm small { color: inherit; }
+
+/* key-value rows */
+dl.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0 0 18px; }
+dl.kv:last-child { margin-bottom: 0; }
+dl.kv dt { color: var(--muted); }
+dl.kv dd { margin: 0; font-family: var(--mono); font-size: 13px; overflow-wrap: break-word; min-width: 0; }
+.dot { display: inline-block; width: 7px; height: 7px; margin-right: 8px; vertical-align: 1px; background: var(--muted); }
+.dot.ok { background: var(--moss); }
+.dot.bad { background: var(--alarm); }
+
+/* forms */
+.field { display: grid; gap: 6px; margin-bottom: 14px; min-width: 0; }
+.field > span { font-size: 13px; color: var(--muted); }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.row > .field { flex: 1 1 160px; }
+.row > .field.wide { flex: 3 1 200px; }
+.row > .field.narrow { flex: 1 1 90px; }
+input[type=text], input[type=password], input[type=number], select {
+  width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 0;
+  background: var(--paper); color: var(--ink);
+}
+input:hover, select:hover { border-color: var(--muted); }
+input::placeholder { color: var(--muted); opacity: .8; }
+.check { display: flex; align-items: center; gap: 10px; padding: 3px 0; margin-bottom: 7px; cursor: pointer; }
+
+input[type=checkbox] {
+  appearance: none; -webkit-appearance: none; flex-shrink: 0; display: inline-grid; place-content: center;
+  width: 18px; height: 18px; margin: 0; border: 1px solid var(--muted); background: var(--paper); cursor: pointer;
+}
+input[type=checkbox]::after {
+  content: ""; width: 10px; height: 6px; margin-top: -3px; visibility: hidden;
+  border-left: 2px solid var(--moss-ink); border-bottom: 2px solid var(--moss-ink); transform: rotate(-45deg);
+}
+input[type=checkbox]:checked { background: var(--moss); border-color: var(--moss); }
+input[type=checkbox]:checked::after { visibility: visible; }
+.check:hover input:not(:checked) { border-color: var(--ink); }
+
+select {
+  appearance: none; -webkit-appearance: none; padding-right: 36px; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: right 18px top 50%, right 13px top 50%; background-size: 5px 5px; background-repeat: no-repeat;
+}
+select option { background: var(--surface); color: var(--ink); }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+.file { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; cursor: pointer; }
+.file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.file:has(input:focus-visible) .btn { outline: 2px solid var(--moss); outline-offset: 2px; }
+.file:hover .btn { background: var(--btn-bg); color: var(--btn-fg); border-color: var(--btn-bg); }
+.file-name { font: 13px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.file-name.chosen { color: var(--ink); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 42px; padding: 10px 18px;
+  border: 1px solid var(--btn-border); background: var(--btn-bg); color: var(--btn-fg); cursor: pointer; font-size: 14px;
+  transition: background-color 120ms, color 120ms, border-color 120ms;
+}
+.btn:hover { background: var(--btn-hover-bg); border-color: var(--btn-hover-bg); color: var(--btn-hover-fg); }
+.btn.ghost { background: none; color: var(--ink); }
+.btn.ghost:hover { background: var(--btn-bg); color: var(--btn-fg); border-color: var(--btn-bg); }
+.btn.danger { background: none; color: var(--alarm); border-color: var(--alarm); }
+.btn.danger:hover, .btn.danger.solid { background: var(--alarm); color: var(--alarm-ink); border-color: var(--alarm); }
+.btn:disabled, .btn[aria-busy="true"] { opacity: .55; cursor: progress; pointer-events: none; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 6px; }
+.hint { font-size: 13px; color: var(--muted); margin: 6px 0 14px; }
+.status { font-size: 13px; min-height: 20px; margin-top: 10px; }
+.status.err { color: var(--alarm); }
+.unsaved { font-size: 13px; color: var(--alarm); }
+
+/* layout picker */
+.group-label { display: block; margin-bottom: 8px; }
+.layouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 0 0 18px; padding: 0; border: 0; min-width: 0; }
+.layouts label { position: relative; display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); background: var(--paper); cursor: pointer; }
+.layouts label:hover { border-color: var(--muted); }
+.layouts input { position: absolute; opacity: 0; }
+.layouts label:has(input:checked) { border-color: var(--moss); box-shadow: inset 0 0 0 1px var(--moss); }
+.layouts label:has(input:focus-visible) { outline: 2px solid var(--moss); outline-offset: 2px; }
+.layouts svg { width: 100%; height: auto; }
+.layouts span { font-size: 13px; line-height: 1.3; }
+
+/* metric list */
+.metrics { list-style: none; margin: 0 0 18px; padding: 0; border: 1px solid var(--line); }
+.metrics li { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--line); background: var(--paper); }
+.metrics li:last-child { border-bottom: 0; }
+.metrics li label { flex: 1; display: flex; align-items: center; gap: 10px; min-height: 32px; cursor: pointer; }
+.metrics li.off label span { color: var(--muted); }
+.icon-btn { display: inline-grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--line); background: none; cursor: pointer; }
+.icon-btn:hover:not(:disabled) { border-color: var(--ink); }
+.icon-btn:disabled { opacity: .3; cursor: default; }
+
+/* networks */
+.nets { list-style: none; margin: 0 0 14px; padding: 0; border: 1px solid var(--line); max-height: 260px; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.nets:empty { display: none; }
+.nets button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; border-bottom: 1px solid var(--line); background: var(--paper); cursor: pointer; text-align: left; }
+.nets li:last-child button { border-bottom: 0; }
+.nets button:hover { background: var(--sage); }
+.nets .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars { display: inline-flex; align-items: end; gap: 2px; height: 14px; }
+.bars i { width: 3px; background: var(--line); }
+.bars i.on { background: var(--moss); }
+.bars i:nth-child(1) { height: 4px; } .bars i:nth-child(2) { height: 7px; } .bars i:nth-child(3) { height: 10px; } .bars i:nth-child(4) { height: 14px; }
+
+progress { appearance: none; -webkit-appearance: none; display: block; width: 100%; height: 8px; margin: 4px 0 14px; border: 1px solid var(--line); background: var(--paper); }
+progress::-webkit-progress-bar { background: var(--paper); }
+progress::-webkit-progress-value { background: var(--moss); }
+progress::-moz-progress-bar { background: var(--moss); }
+
+details { margin-top: 4px; }
+details + details, form + details { margin-top: 14px; }
+summary { display: inline-flex; align-items: center; gap: 8px; padding: 4px 0; list-style: none; cursor: pointer; color: var(--muted); font-size: 13px; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: ""; border-left: 5px solid currentColor; border-block: 4px solid transparent; transition: transform 150ms; }
+details[open] > summary::before { transform: rotate(90deg); }
+summary:hover { color: var(--ink); }
+details > .row { margin-top: 12px; }
+pre { margin: 10px 0 0; padding: 12px; overflow: auto; background: var(--paper); border: 1px solid var(--line); font-size: 12px; }
+
+/* updates */
+.update-notes { white-space: pre-wrap; font: 13px/1.5 var(--sans); max-height: 220px; }
+.badge { display: inline-block; padding: 1px 7px; margin-left: 6px; font: 11px var(--mono); background: var(--moss); color: var(--moss-ink); vertical-align: 1px; }
+
+/* developer tools */
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.toolbar select, .toolbar input[type=text] { width: auto; min-height: 36px; padding: 6px 10px; }
+.toolbar select { padding-right: 32px; }
+.toolbar input[type=text] { flex: 1 1 160px; }
+.toolbar .btn { min-height: 36px; padding: 6px 12px; }
+.log { height: clamp(260px, 55vh, 560px); margin: 0; overflow: auto; overscroll-behavior: contain; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.45; }
+.log .E { color: var(--alarm); font-weight: 600; }
+.log .W { color: var(--alarm); }
+.log .D, .log .V { color: var(--muted); }
+.log mark { background: var(--sage); color: inherit; }
+.log-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+textarea { width: 100%; min-height: 90px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 0; background: var(--paper); color: var(--ink); font: 13px var(--mono); resize: vertical; }
+.json { max-height: 420px; }
+.http-status { font: 13px var(--mono); }
+
+/* confirmation dialog */
+dialog { max-width: min(440px, calc(100vw - 32px)); padding: 22px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+dialog::backdrop { background: rgb(10 12 13 / .55); }
+dialog p { margin-bottom: 18px; }
+dialog .actions { justify-content: flex-end; margin: 0; }
+
+footer { border-top: 1px solid var(--line); padding: 14px 0; font-size: 12px; color: var(--muted); }
+[hidden] { display: none !important; }
+
+/* ===================== responsive ===================== */
+.wrap { padding-inline: max(clamp(14px, 3vw, 28px), env(safe-area-inset-left)) max(clamp(14px, 3vw, 28px), env(safe-area-inset-right)); }
+footer { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+
+/* Touch screens: 16px fields stop iOS from zooming in on focus. */
+@media (pointer: coarse) {
+  input[type=text], input[type=password], input[type=number], select, textarea { font-size: 16px; }
+  .icon-btn { width: 40px; height: 40px; }
+}
+
+
+/* Phones */
+@media (max-width: 640px) {
+  .bar { gap: 8px; min-height: 56px; }
+  .brand { font-size: 16px; gap: 10px; }
+  .brand svg { width: 20px; height: 20px; }
+  nav { gap: 18px; margin-inline: -2px; }
+  .actions .btn { flex: 1 1 auto; }
+  .banner { padding: 12px 14px; margin-bottom: 14px; }
+  dialog .actions { flex-direction: column-reverse; align-items: stretch; }
+  pre { font-size: 11px; }
+}
+
+/* Small phones: labels above values, compact header controls. */
+@media (max-width: 420px) {
+  dl.kv { grid-template-columns: 1fr; gap: 0; }
+  dl.kv dt { font-size: 13px; margin-top: 8px; }
+  dl.kv dt:first-child { margin-top: 0; }
+  .switch button { min-width: 32px; padding: 0 6px; }
+  .readings .reading .label { letter-spacing: .1em; }
+  .row > .field, .row > .field.wide, .row > .field.narrow { flex-basis: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before { transition: none !important; }
+}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
+<header>
+  <div class="wrap bar">
+    <h1 class="brand">
+      <svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M10 2h4v1h-4zM2 3h3v1h-3zM9 3h5v1h-5zM2 4h5v1h-5zM8 4h6v1h-6zM2 5h6v1h-6zM9 5h5v1h-5zM2 6h6v1h-6zM10 6h3v1h-3zM3 7h6v1h-6zM10 7h1v1h-1zM4 8h5v1h-5zM6 9h3v1h-3zM7 10h2v1h-2zM7 11h2v1h-2zM7 12h2v1h-2zM7 13h2v1h-2z"/></svg>
+      <span id="dev-name" translate="no">E-Ink Clock</span>
+    </h1>
+    <div class="switch" role="group" data-i18n-aria="language">
+      <button type="button" data-lang="en" lang="en">EN</button><button type="button" data-lang="ru" lang="ru">RU</button>
+    </div>
+    <div class="switch" role="group" data-i18n-aria="theme">
+      <button type="button" data-theme-btn="auto" data-i18n-aria="theme_auto"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M6 2h4v1h2v1h1v2h1v4h-1v2h-1v1h-2v1H6v-1H4v-1H3v-2H2V6h1V4h1V3h2zm2 2v8h2v-1h1v-1h1V6h-1V5h-1V4z"/></svg></button><button type="button" data-theme-btn="light" data-i18n-aria="theme_light"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M7 1h2v2H7zM7 13h2v2H7zM1 7h2v2H1zM13 7h2v2h-2zM3 3h2v2H3zM11 3h2v2h-2zM3 11h2v2H3zM11 11h2v2h-2zM6 5h4v1h1v4h-1v1H6v-1H5V6h1z"/></svg></button><button type="button" data-theme-btn="dark" data-i18n-aria="theme_dark"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M6 2h3v1H8v1H7v3h1v1h1v1h4v1h-1v2h-1v1H9v1H6v-1H4v-1H3v-2H2V6h1V4h1V3h2z"/></svg></button>
+    </div>
+  </div>
+  <div class="wrap">
+    <nav role="tablist" data-i18n-aria="sections">
+      <button role="tab" id="tab-btn-overview" aria-controls="tab-overview" data-tab="overview" data-i18n="tab_overview">Overview</button>
+      <button role="tab" id="tab-btn-display" aria-controls="tab-display" data-tab="display" data-i18n="tab_display">Display</button>
+      <button role="tab" id="tab-btn-network" aria-controls="tab-network" data-tab="network" data-i18n="tab_network">Network</button>
+      <button role="tab" id="tab-btn-system" aria-controls="tab-system" data-tab="system" data-i18n="tab_system">System</button>
+      <button role="tab" id="tab-btn-dev" aria-controls="tab-dev" data-tab="dev" data-i18n="tab_dev">Developer</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="main" tabindex="-1">
+  <div id="setup-banner" class="banner" role="status" hidden></div>
+
+  <!-- ============ Overview ============ -->
+  <section role="tabpanel" id="tab-overview" aria-labelledby="tab-btn-overview">
+    <div class="grid">
+      <figure class="device-wrap" style="margin:0">
+        <div class="device"><img id="screen" class="screen" width="296" height="128" data-i18n-alt="screen_alt" alt=""></div>
+        <figcaption class="device-note muted" data-i18n="screen_note">Panel contents, updated every 15 s</figcaption>
+      </figure>
+
+      <div class="readings" id="readings"></div>
+
+      <div class="grid cols">
+        <section class="card" aria-labelledby="h-notify">
+          <h2 id="h-notify" data-i18n="notify_title">Message on the screen</h2>
+          <form id="notify-form">
+            <label class="field"><span data-i18n="notify_text">Text</span>
+              <input type="text" id="notify-text" name="text" maxlength="255" autocomplete="off" data-i18n-placeholder="notify_placeholder"></label>
+            <div class="row">
+              <label class="field"><span data-i18n="notify_ttl">Show for</span>
+                <select id="notify-ttl" name="ttl">
+                  <option value="0" data-i18n="ttl_forever">Until cleared</option>
+                  <option value="60" data-i18n="ttl_1m">1 minute</option>
+                  <option value="300" data-i18n="ttl_5m">5 minutes</option>
+                  <option value="900" data-i18n="ttl_15m">15 minutes</option>
+                  <option value="3600" data-i18n="ttl_1h">1 hour</option>
+                  <option value="28800" data-i18n="ttl_8h">8 hours</option>
+                  <option value="86400" data-i18n="ttl_24h">24 hours</option>
+                </select></label>
+            </div>
+            <label class="check"><input type="checkbox" id="notify-full" name="fullscreen"><span data-i18n="notify_full">Full screen</span></label>
+            <div class="actions">
+              <button class="btn" type="submit" data-i18n="notify_send">Show on the screen</button>
+              <button class="btn ghost" type="button" id="notify-clear" data-i18n="notify_clear">Remove</button>
+            </div>
+            <p class="status" id="notify-status" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="card" aria-labelledby="h-status">
+          <h2 id="h-status" data-i18n="status_title">Status</h2>
+          <dl class="kv" id="overview-kv"></dl>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Display ============ -->
+  <section role="tabpanel" id="tab-display" aria-labelledby="tab-btn-display">
+    <div class="grid cols">
+      <section class="card" aria-labelledby="h-layout">
+        <h2 id="h-layout" data-i18n="layout_title">What the screen shows</h2>
+        <fieldset class="layouts" id="layouts"><legend class="sr-only" data-i18n="layout_legend">Layout</legend></fieldset>
+
+        <span class="label group-label" id="metrics-label" data-i18n="metrics_title">Readings and order</span>
+        <ul class="metrics" id="metrics" aria-labelledby="metrics-label"></ul>
+
+        <div class="row">
+          <label class="field"><span data-i18n="date_format">Date</span>
+            <select id="f-date_format" name="date_format">
+              <option value="dmy_text">3 Nov 2026</option>
+              <option value="weekday">Tue, 3 Nov</option>
+              <option value="dmy_dots">03.11.2026</option>
+              <option value="iso">2026-11-03</option>
+            </select></label>
+          <label class="field"><span data-i18n="screen_lang">Screen language</span>
+            <select id="f-language" name="language"><option value="en" lang="en">English</option><option value="ru" lang="ru">Русский</option></select></label>
+        </div>
+        <label class="check"><input type="checkbox" id="f-show_date" name="show_date"><span data-i18n="show_date">Show date</span></label>
+        <label class="check"><input type="checkbox" id="f-hour24" name="hour24"><span data-i18n="hour24">24-hour time</span></label>
+
+        <label class="field" style="margin-top:10px"><span data-i18n="timezone">Time zone</span>
+          <select id="f-timezone" name="timezone"></select></label>
+        <label class="field" id="tz-custom-wrap" hidden><span data-i18n="tz_custom">POSIX TZ string</span>
+          <input type="text" id="f-tz_posix" name="tz_posix" class="mono" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="CET-1CEST,M3.5.0,M10.5.0/3"></label>
+
+        <div class="row">
+          <label class="field"><span data-i18n="temp_unit">Temperature</span>
+            <select id="f-temp_unit" name="temp_unit"><option value="c">°C</option><option value="f">°F</option></select></label>
+          <label class="field"><span data-i18n="pressure_unit">Pressure</span>
+            <select id="f-pressure_unit" name="pressure_unit"><option value="hpa" data-i18n="u_hpa">hPa</option><option value="mmhg" data-i18n="u_mmhg">mmHg</option></select></label>
+        </div>
+        <label class="field" style="margin-top:4px"><span data-i18n="connect_notice">Address after connecting to Wi-Fi</span>
+          <select id="f-connect_notice_s" name="connect_notice_s">
+            <option value="0" data-i18n="cn_off">Don't show</option>
+            <option value="30" data-i18n="cn_30s">30 seconds</option>
+            <option value="60" data-i18n="ttl_1m">1 minute</option>
+            <option value="120" data-i18n="cn_2m">2 minutes</option>
+            <option value="600" data-i18n="ttl_10m">10 minutes</option>
+            <option value="-1" data-i18n="ttl_forever">Until removed</option>
+          </select></label>
+        <label class="check"><input type="checkbox" id="f-invert" name="invert"><span data-i18n="invert">White on black</span></label>
+        <label class="check"><input type="checkbox" id="f-rotate180" name="rotate180"><span data-i18n="rotate">Upside down (rotate 180°)</span></label>
+
+        <div class="actions">
+          <button class="btn" type="button" id="display-save" data-i18n="save_display">Save and show</button>
+          <button class="btn ghost" type="button" id="display-reset" data-i18n="revert" hidden>Discard changes</button>
+          <span class="unsaved" id="display-dirty" data-i18n="unsaved" hidden>Not saved</span>
+        </div>
+        <p class="status" id="display-status" aria-live="polite"></p>
+      </section>
+
+      <div class="grid sticky first-on-mobile">
+        <section class="card" aria-labelledby="h-preview">
+          <h2 id="h-preview" data-i18n="preview_title">Preview</h2>
+          <div class="device-wrap"><div class="device"><img id="preview" class="screen" width="296" height="128" data-i18n-alt="preview_alt" alt=""></div></div>
+          <p class="hint" data-i18n="preview_hint">Drawn by the clock with the current readings. The panel changes only after saving.</p>
+          <label class="check"><input type="checkbox" id="pv-notice"><span data-i18n="preview_notice">With a message</span></label>
+          <label class="check"><input type="checkbox" id="pv-full"><span data-i18n="preview_full">Message on the full screen</span></label>
+          <label class="check"><input type="checkbox" id="pv-setup"><span data-i18n="preview_setup">Wi-Fi setup screen</span></label>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Network ============ -->
+  <section role="tabpanel" id="tab-network" aria-labelledby="tab-btn-network">
+    <div class="grid cols">
+      <section class="card" aria-labelledby="h-wifi">
+        <h2 id="h-wifi">Wi-Fi</h2>
+        <dl class="kv" id="wifi-kv"></dl>
+        <div class="actions" style="margin:0 0 12px">
+          <button class="btn ghost" type="button" id="wifi-scan" data-i18n="wifi_scan">Find networks</button>
+        </div>
+        <ul class="nets" id="nets" data-i18n-aria="networks"></ul>
+        <form id="wifi-form">
+          <label class="field"><span data-i18n="wifi_ssid">Network name</span>
+            <input type="text" id="wifi-ssid" name="ssid" maxlength="32" autocomplete="off" spellcheck="false" autocapitalize="off" required></label>
+          <label class="field"><span data-i18n="wifi_pass">Password</span>
+            <input type="password" id="wifi-pass" name="password" maxlength="64" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+          <label class="check"><input type="checkbox" id="wifi-show"><span data-i18n="show_password">Show password</span></label>
+          <div class="actions"><button class="btn" type="submit" data-i18n="wifi_connect">Connect</button></div>
+          <p class="status" id="wifi-status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="h-mqtt">
+        <h2 id="h-mqtt" data-i18n="mqtt_title">MQTT and Home Assistant</h2>
+        <dl class="kv" id="mqtt-kv"></dl>
+        <form id="mqtt-form">
+          <label class="check"><input type="checkbox" id="m-enabled" name="enabled"><span data-i18n="mqtt_enabled">Publish to MQTT</span></label>
+          <div class="row">
+            <label class="field wide"><span data-i18n="mqtt_host">Broker address</span>
+              <input type="text" id="m-host" name="host" inputmode="url" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="homeassistant.local"></label>
+            <label class="field narrow"><span data-i18n="mqtt_port">Port</span>
+              <input type="number" id="m-port" name="port" inputmode="numeric" min="1" max="65535"></label>
+          </div>
+          <div class="row">
+            <label class="field"><span data-i18n="mqtt_user">User</span>
+              <input type="text" id="m-username" name="username" spellcheck="false" autocapitalize="off" autocomplete="off"></label>
+            <label class="field"><span data-i18n="mqtt_pass">Password</span>
+              <input type="password" id="m-password" name="password" autocomplete="new-password"></label>
+          </div>
+          <label class="check"><input type="checkbox" id="m-discovery" name="discovery"><span data-i18n="mqtt_discovery">Home Assistant discovery</span></label>
+          <details>
+            <summary data-i18n="advanced">Topic prefixes</summary>
+            <div class="row">
+              <label class="field"><span data-i18n="mqtt_prefix">Topic prefix</span>
+                <input type="text" id="m-prefix" name="prefix" class="mono" spellcheck="false" autocapitalize="off" autocomplete="off"></label>
+              <label class="field"><span data-i18n="mqtt_disc_prefix">Discovery prefix</span>
+                <input type="text" id="m-discovery_prefix" name="discovery_prefix" class="mono" spellcheck="false" autocapitalize="off" autocomplete="off"></label>
+            </div>
+          </details>
+          <div class="actions" style="margin-top:14px"><button class="btn" type="submit" data-i18n="save_mqtt">Save and connect</button></div>
+          <p class="status" id="mqtt-status" aria-live="polite"></p>
+        </form>
+        <details>
+          <summary data-i18n="mqtt_topics">Topics for automations</summary>
+          <pre id="mqtt-topics" translate="no"></pre>
+        </details>
+      </section>
+    </div>
+  </section>
+
+  <!-- ============ System ============ -->
+  <section role="tabpanel" id="tab-system" aria-labelledby="tab-btn-system">
+    <div class="grid cols">
+      <div class="grid">
+        <section class="card" aria-labelledby="h-device">
+          <h2 id="h-device" data-i18n="device_title">Name and sensors</h2>
+          <form id="device-form">
+            <label class="field"><span data-i18n="dev_name">Name, also shown in Home Assistant</span>
+              <input type="text" id="d-name" name="name" maxlength="31" autocomplete="off"></label>
+            <div class="row">
+              <label class="field"><span data-i18n="co2_threshold">CO₂ alert above, ppm</span>
+                <input type="number" id="d-co2_threshold_ppm" name="co2_threshold_ppm" inputmode="numeric" min="400" max="5000" step="50"></label>
+              <label class="field"><span data-i18n="temp_offset">Temperature correction, °C</span>
+                <input type="number" id="d-temp_offset_c" name="temp_offset_c" inputmode="decimal" min="-10" max="10" step="0.1"></label>
+            </div>
+            <label class="check"><input type="checkbox" id="d-co2_led" name="co2_led"><span data-i18n="co2_led">Blink the LED above the threshold</span></label>
+            <div class="actions"><button class="btn" type="submit" data-i18n="save">Save</button></div>
+            <p class="status" id="device-status" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="card" aria-labelledby="h-cal">
+          <h2 id="h-cal" data-i18n="cal_title">CO₂ calibration</h2>
+          <p class="hint" data-i18n="cal_hint">Sets the current reading as 400 ppm. Keep the clock outdoors or by an open window for at least 20 minutes first.</p>
+          <button class="btn ghost" type="button" id="cal-btn" data-i18n="cal_btn">Calibrate to 400 ppm</button>
+          <p class="status" id="cal-status" aria-live="polite"></p>
+        </section>
+      </div>
+
+      <div class="grid">
+        <section class="card" aria-labelledby="h-fw">
+          <h2 id="h-fw" data-i18n="fw_title">Firmware update</h2>
+          <dl class="kv" id="fw-kv"></dl>
+
+          <div id="upd-box">
+            <dl class="kv" id="upd-kv"></dl>
+            <details id="upd-notes-box" hidden>
+              <summary data-i18n="upd_notes">What's new</summary>
+              <pre class="update-notes" id="upd-notes"></pre>
+            </details>
+            <div class="actions" style="margin:12px 0 4px">
+              <button class="btn" type="button" id="upd-install" hidden></button>
+              <button class="btn ghost" type="button" id="upd-check" data-i18n="upd_check">Check for updates</button>
+            </div>
+            <p class="status" id="upd-status" aria-live="polite"></p>
+            <label class="check"><input type="checkbox" id="upd-auto-check" name="update_check"><span data-i18n="upd_auto_check">Check GitHub for new versions once a day</span></label>
+            <label class="check"><input type="checkbox" id="upd-auto-install" name="update_auto"><span data-i18n="upd_auto_install">Install new versions automatically at night (03:00–05:00)</span></label>
+          </div>
+
+          <details style="margin-top:12px">
+            <summary data-i18n="fw_manual">Install a file manually</summary>
+          <form id="ota-form" style="margin-top:12px">
+            <div class="field">
+              <label class="file">
+                <input type="file" id="ota-file" name="firmware" accept=".bin,application/octet-stream">
+                <span class="btn ghost" data-i18n="fw_choose">Choose firmware.bin</span>
+                <span class="file-name" id="ota-file-name" data-i18n="fw_none">No file selected</span>
+              </label>
+            </div>
+            <progress id="ota-progress" max="100" value="0" hidden></progress>
+            <div class="actions"><button class="btn" type="submit" id="ota-submit" data-i18n="fw_upload" disabled>Install</button></div>
+            <p class="status" id="ota-status" aria-live="polite"></p>
+          </form>
+          </details>
+          <p class="hint" style="margin-top:12px" data-i18n="fw_hint">If the new firmware fails to start, the clock goes back to the current one. Settings are kept.</p>
+        </section>
+
+        <section class="card" aria-labelledby="h-maint">
+          <h2 id="h-maint" data-i18n="maint_title">Restart and reset</h2>
+          <div class="actions">
+            <button class="btn ghost" type="button" id="btn-reboot" data-i18n="reboot">Restart</button>
+            <button class="btn danger" type="button" id="btn-forget" data-i18n="forget">Forget Wi-Fi</button>
+            <button class="btn danger" type="button" id="btn-factory" data-i18n="factory">Erase all settings</button>
+          </div>
+          <p class="hint" style="margin-top:14px" data-i18n="reset_hint">Without the web page: plug the clock in three times in a row, unplugging it within five seconds each time. Wi-Fi and MQTT settings are cleared.</p>
+          <p class="status" id="maint-status" aria-live="polite"></p>
+        </section>
+
+        <section class="card" aria-labelledby="h-api">
+          <h2 id="h-api" data-i18n="api_title">Local HTTP API</h2>
+          <p class="hint" data-i18n="api_hint">No keys or accounts. JSON in and out, except the screen images.</p>
+          <pre translate="no">GET    /api/state
+GET    /api/config      POST /api/config
+GET    /api/screen.bmp  POST /api/preview
+POST   /api/notify      DELETE /api/notify
+GET    /api/wifi/scan   POST /api/wifi
+POST   /api/co2/calibrate
+POST   /api/ota
+POST   /api/system/{reboot,forget-wifi,factory-reset}</pre>
+          <pre id="api-example" translate="no"></pre>
+        </section>
+      </div>
+    </div>
+  </section>
+  <!-- ============ Developer ============ -->
+  <section role="tabpanel" id="tab-dev" aria-labelledby="tab-btn-dev">
+    <div class="grid">
+      <section class="card" aria-labelledby="h-log">
+        <h2 id="h-log" data-i18n="log_title">Device log</h2>
+        <div class="toolbar">
+          <select id="log-filter" data-i18n-aria="log_filter">
+            <option value="" data-i18n="log_all">All levels</option>
+            <option value="E" data-i18n="log_e">Errors</option>
+            <option value="EW" data-i18n="log_ew">Errors and warnings</option>
+            <option value="EWI" data-i18n="log_ewi">Without debug</option>
+          </select>
+          <input type="text" id="log-search" spellcheck="false" autocomplete="off" data-i18n-placeholder="log_search" data-i18n-aria="log_search">
+          <button class="btn ghost" type="button" id="log-pause" aria-pressed="false" data-i18n="log_pause">Pause</button>
+          <button class="btn ghost" type="button" id="log-clear" data-i18n="log_clear">Clear</button>
+          <button class="btn ghost" type="button" id="log-save" data-i18n="log_save">Download</button>
+        </div>
+        <pre class="log" id="log" translate="no" tabindex="0"></pre>
+        <div class="log-meta"><span id="log-info"></span><label class="check" style="margin:0"><input type="checkbox" id="log-follow" checked><span data-i18n="log_follow">Follow new lines</span></label></div>
+        <div class="row" style="margin-top:14px">
+          <label class="field"><span data-i18n="log_level">Device log level</span>
+            <select id="log-level" name="log_level">
+              <option value="error">error</option><option value="warn">warn</option><option value="info" selected>info</option>
+              <option value="debug">debug</option>
+            </select></label>
+          <label class="field"><span data-i18n="log_tag">Tag (* = all)</span>
+            <input type="text" id="log-tag" name="log_tag" value="*" spellcheck="false" autocapitalize="off" autocomplete="off"></label>
+          <div class="field" style="flex:0 0 auto"><button class="btn ghost" type="button" id="log-level-set" data-i18n="apply">Apply</button></div>
+        </div>
+        <p class="status" id="log-status" aria-live="polite"></p>
+        <p class="hint" data-i18n="log_hint">The last 12 KB of output since the clock started. The level resets to info after a restart.</p>
+      </section>
+
+      <div class="grid cols">
+        <section class="card" aria-labelledby="h-console">
+          <h2 id="h-console" data-i18n="console_title">API console</h2>
+          <form id="console-form">
+            <div class="row">
+              <label class="field narrow"><span data-i18n="console_method">Method</span>
+                <select id="console-method" name="method"><option>GET</option><option>POST</option><option>DELETE</option></select></label>
+              <label class="field wide"><span data-i18n="console_path">Path</span>
+                <input type="text" id="console-path" name="path" value="/api/state" class="mono" spellcheck="false" autocapitalize="off" autocomplete="off"></label>
+            </div>
+            <label class="field"><span data-i18n="console_body">JSON body</span>
+              <textarea id="console-body" name="body" spellcheck="false" placeholder='{"text": "Hello", "ttl": 60}'></textarea></label>
+            <div class="actions"><button class="btn" type="submit" data-i18n="console_send">Send request</button></div>
+          </form>
+          <p class="http-status status" id="console-status" aria-live="polite"></p>
+          <pre class="json" id="console-out" translate="no"></pre>
+        </section>
+
+        <section class="card" aria-labelledby="h-raw">
+          <h2 id="h-raw" data-i18n="raw_title">Raw state</h2>
+          <p class="hint" data-i18n="raw_hint">GET /api/state, refreshed every 5 seconds.</p>
+          <pre class="json" id="raw-state" translate="no"></pre>
+        </section>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer><div class="wrap mono" id="footer" translate="no"></div></footer>
+
+<dialog id="confirm" aria-labelledby="confirm-text">
+  <form method="dialog">
+    <p id="confirm-text"></p>
+    <div class="actions">
+      <button class="btn ghost" value="cancel" data-i18n="cancel">Cancel</button>
+      <button class="btn" value="ok" id="confirm-ok"></button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+
+/* ===================== i18n ===================== */
+const I18N = {
+  en: {
+    skip: "Skip to content", language: "Language", theme: "Theme", sections: "Sections", networks: "Networks found",
+    tab_overview: "Overview", tab_display: "Display", tab_network: "Network", tab_system: "System",
+    theme_auto: "Theme: system", theme_light: "Theme: light", theme_dark: "Theme: dark",
+    temperature: "Temperature", humidity: "Humidity", pressure: "Pressure", co2: "CO₂",
+    screen_alt: "What the clock screen shows now", preview_alt: "Preview of the screen with unsaved settings",
+    screen_note: "The panel right now, refreshed every 15 seconds",
+    notify_title: "Message on the screen", notify_text: "Text",
+    notify_placeholder: "Meeting until 15:00…", notify_ttl: "Show for", ttl_forever: "Until removed",
+    ttl_1m: "1 minute", ttl_10m: "10 minutes", cn_2m: "2 minutes", cn_30s: "30 seconds", cn_off: "Don't show", connect_notice: "Address after connecting to Wi-Fi", ttl_5m: "5 minutes", ttl_15m: "15 minutes", ttl_1h: "1 hour", ttl_8h: "8 hours", ttl_24h: "24 hours",
+    notify_full: "Full screen", notify_send: "Show on the screen", notify_clear: "Remove",
+    notify_empty: "Type the text of the message first.", notify_sent: "Shown on the screen.", notify_cleared: "Removed.",
+    status_title: "Status",
+    k_time: "Time", k_wifi: "Wi-Fi", k_mqtt: "MQTT", k_uptime: "Running for", k_notice: "Message",
+    connected: "connected", disconnected: "not connected", off: "off", time_unset: "not set",
+    layout_title: "What the screen shows", layout_legend: "Layout",
+    l_classic: "Clock and readings", l_clock: "Clock", l_co2: "CO₂", l_sensors: "Readings",
+    metrics_title: "Readings and order", up: "Move {0} up", down: "Move {0} down",
+    date_format: "Date", screen_lang: "Screen language", show_date: "Show date", hour24: "24-hour time",
+    timezone: "Time zone", tz_custom: "POSIX TZ string", tz_other: "Other (POSIX string)…",
+    temp_unit: "Temperature", pressure_unit: "Pressure", u_hpa: "hPa", u_mmhg: "mmHg",
+    invert: "White on black", rotate: "Upside down (rotate 180°)",
+    save: "Save", save_display: "Save and show", save_mqtt: "Save and connect", saving: "Saving…",
+    revert: "Discard changes", unsaved: "Not saved", saved: "Saved.", saved_display: "Saved. The panel updates in a few seconds.",
+    leave_unsaved: "Display changes are not saved.",
+    preview_title: "Preview",
+    preview_hint: "Drawn by the clock with the current readings. The panel changes only after saving.",
+    preview_notice: "With a message", preview_full: "Message on the full screen", preview_setup: "Wi-Fi setup screen",
+    preview_sample: "Meeting until 15:00",
+    wifi_scan: "Find networks", scanning: "Searching…", no_networks: "No networks found. Move the clock closer to the router and search again.",
+    wifi_ssid: "Network name", wifi_pass: "Password", show_password: "Show password", wifi_connect: "Connect",
+    k_network: "Network", k_ip: "Address", k_signal: "Signal", k_hostname: "Name in the network", k_ap: "Setup access point",
+    ap_on: "on", ap_off: "off",
+    wifi_connecting: "Connecting to “{0}”…", wifi_ok: "Connected. Open the clock at {0}. The setup access point turns off in a minute.",
+    wifi_fail: "No connection yet. Check the password and try again; the clock keeps retrying.",
+    keep_pass: "Leave empty to keep the saved password",
+    setup_banner: "Setup mode. Choose your Wi-Fi network below. After connecting, the clock shows its new address on the screen.",
+    setup_banner_failed: "Cannot reach “{0}”. The clock keeps retrying; you can choose another network here.",
+    mqtt_title: "MQTT and Home Assistant", mqtt_enabled: "Publish to MQTT", mqtt_host: "Broker address", mqtt_port: "Port",
+    mqtt_user: "User", mqtt_pass: "Password", mqtt_discovery: "Home Assistant discovery", advanced: "Topic prefixes",
+    mqtt_prefix: "Topic prefix", mqtt_disc_prefix: "Discovery prefix", mqtt_topics: "Topics for automations",
+    k_broker: "Broker", k_topic: "Topics", pass_set: "Saved; leave empty to keep",
+    device_title: "Name and sensors", dev_name: "Name, also shown in Home Assistant",
+    co2_threshold: "CO₂ alert above, ppm", temp_offset: "Temperature correction, °C", co2_led: "Blink the LED above the threshold",
+    cal_title: "CO₂ calibration", cal_hint: "Sets the current reading as 400 ppm. Keep the clock outdoors or by an open window for at least 20 minutes first.",
+    cal_btn: "Calibrate to 400 ppm", cal_confirm: "Has the clock been in fresh air for 20 minutes? The current reading becomes 400 ppm.", cal_done: "Calibration started.",
+    fw_title: "Firmware update", fw_choose: "Choose firmware.bin", fw_none: "No file selected", fw_upload: "Install",
+    fw_hint: "If the new firmware fails to start, the clock goes back to the current one. Settings are kept.",
+    k_version: "Version", k_partition: "Partition", k_idf: "ESP-IDF", k_heap: "Free memory", k_reset: "Last reset", k_mac: "MAC",
+    ota_uploading: "Uploading… {0}%", ota_done: "Installed. Restarting…", ota_back: "The clock is back with version {0}.",
+    maint_title: "Restart and reset", reboot: "Restart", forget: "Forget Wi-Fi", factory: "Erase all settings",
+    reset_hint: "Without the web page: plug the clock in three times in a row, unplugging it within five seconds each time. Wi-Fi and MQTT settings are cleared.",
+    confirm_reboot: "Restart the clock? The page reconnects on its own.", confirm_forget: "Forget the Wi-Fi network and MQTT settings? The clock opens its setup access point.",
+    confirm_factory: "Erase all settings, including the screen layout? This cannot be undone.", restarting: "Restarting…", back_online: "The clock is back online.",
+    cancel: "Cancel",
+    api_title: "Local HTTP API", api_hint: "No keys or accounts. JSON in and out, except the screen images.",
+    offline: "No connection to the clock. Retrying…", error: "Error: {0}", network_error: "the clock did not answer",
+    tab_dev: "Developer", fw_manual: "Install a file manually", upd_notes: "What's new",
+    upd_check: "Check for updates", upd_checking: "Checking GitHub…", upd_install: "Install {0}", upd_installing: "Installing… {0}%",
+    upd_auto_check: "Check GitHub for new versions once a day", upd_auto_install: "Install new versions automatically at night (03:00–05:00)",
+    k_latest: "Latest release", k_checked: "Last check", upd_never: "not checked yet", upd_none: "none published yet", upd_ago: "{0} ago", just_now: "just now", upd_uptodate: "up to date",
+    upd_new: "new", upd_offline: "Connect the clock to the internet to check for updates.", upd_confirm: "Install version {0}? The clock restarts when it is done; settings are kept.",
+    upd_started: "Downloading {0}. The screen shows the progress.",
+    log_title: "Device log", log_filter: "Show levels", log_all: "All levels", log_e: "Errors", log_ew: "Errors and warnings", log_ewi: "Without debug",
+    log_search: "Filter text…", log_pause: "Pause", log_resume: "Resume", log_clear: "Clear", log_save: "Download", log_follow: "Follow new lines",
+    log_level: "Device log level", log_tag: "Tag (* = all)", apply: "Apply", log_level_set: "Log level of {0} is now {1}.",
+    log_hint: "The last 12 KB of output since the clock started. The level resets to info after a restart.",
+    log_lines: "{0} lines", log_dropped: "older lines were overwritten", log_paused: "paused",
+    console_title: "API console", console_method: "Method", console_path: "Path", console_body: "JSON body", console_send: "Send request",
+    raw_title: "Raw state", raw_hint: "GET /api/state, refreshed every 5 seconds.",
+    footer: "{0} · firmware {1} · {2}", units: ["d", "h", "min"],
+  },
+  ru: {
+    skip: "К содержимому", language: "Язык", theme: "Тема", sections: "Разделы", networks: "Найденные сети",
+    tab_overview: "Обзор", tab_display: "Экран", tab_network: "Сеть", tab_system: "Система",
+    theme_auto: "Тема: как в системе", theme_light: "Тема: светлая", theme_dark: "Тема: тёмная",
+    temperature: "Температура", humidity: "Влажность", pressure: "Давление", co2: "CO₂",
+    screen_alt: "Что сейчас показывает экран часов", preview_alt: "Превью экрана с несохранёнными настройками",
+    screen_note: "Панель сейчас, обновляется каждые 15 секунд",
+    notify_title: "Сообщение на экране", notify_text: "Текст",
+    notify_placeholder: "Совещание до 15:00…", notify_ttl: "Показывать", ttl_forever: "Пока не уберут",
+    ttl_1m: "1 минуту", ttl_10m: "10 минут", cn_2m: "2 минуты", cn_30s: "30 секунд", cn_off: "Не показывать", connect_notice: "Адрес после подключения к Wi-Fi", ttl_5m: "5 минут", ttl_15m: "15 минут", ttl_1h: "1 час", ttl_8h: "8 часов", ttl_24h: "24 часа",
+    notify_full: "На весь экран", notify_send: "Показать на экране", notify_clear: "Убрать",
+    notify_empty: "Сначала введите текст сообщения.", notify_sent: "Показано на экране.", notify_cleared: "Убрано.",
+    status_title: "Состояние",
+    k_time: "Время", k_wifi: "Wi-Fi", k_mqtt: "MQTT", k_uptime: "Работает", k_notice: "Сообщение",
+    connected: "подключено", disconnected: "нет связи", off: "выключено", time_unset: "не задано",
+    layout_title: "Что показывает экран", layout_legend: "Раскладка",
+    l_classic: "Часы и показания", l_clock: "Часы", l_co2: "CO₂", l_sensors: "Показания",
+    metrics_title: "Показания и порядок", up: "{0} выше", down: "{0} ниже",
+    date_format: "Дата", screen_lang: "Язык экрана", show_date: "Показывать дату", hour24: "24-часовой формат",
+    timezone: "Часовой пояс", tz_custom: "Строка POSIX TZ", tz_other: "Другой (строка POSIX)…",
+    temp_unit: "Температура", pressure_unit: "Давление", u_hpa: "гПа", u_mmhg: "мм рт. ст.",
+    invert: "Белым по чёрному", rotate: "Вверх ногами (поворот на 180°)",
+    save: "Сохранить", save_display: "Сохранить и показать", save_mqtt: "Сохранить и подключить", saving: "Сохранение…",
+    revert: "Отменить правки", unsaved: "Не сохранено", saved: "Сохранено.", saved_display: "Сохранено. Панель обновится через несколько секунд.",
+    leave_unsaved: "Изменения экрана не сохранены.",
+    preview_title: "Превью",
+    preview_hint: "Кадр рисуют сами часы с текущими показаниями. Панель меняется только после сохранения.",
+    preview_notice: "С сообщением", preview_full: "Сообщение на весь экран", preview_setup: "Экран настройки Wi-Fi",
+    preview_sample: "Совещание до 15:00",
+    wifi_scan: "Найти сети", scanning: "Поиск…", no_networks: "Сети не найдены. Поднесите часы ближе к роутеру и повторите поиск.",
+    wifi_ssid: "Имя сети", wifi_pass: "Пароль", show_password: "Показать пароль", wifi_connect: "Подключить",
+    k_network: "Сеть", k_ip: "Адрес", k_signal: "Сигнал", k_hostname: "Имя в сети", k_ap: "Точка настройки",
+    ap_on: "включена", ap_off: "выключена",
+    wifi_connecting: "Подключение к «{0}»…", wifi_ok: "Подключено. Часы доступны по адресу {0}. Точка настройки выключится через минуту.",
+    wifi_fail: "Пока нет связи. Проверьте пароль и попробуйте ещё раз; часы продолжают попытки.",
+    keep_pass: "Оставьте пустым, чтобы не менять пароль",
+    setup_banner: "Режим настройки. Выберите свою сеть Wi-Fi ниже. После подключения часы покажут новый адрес на экране.",
+    setup_banner_failed: "Нет связи с «{0}». Часы продолжают попытки; здесь можно выбрать другую сеть.",
+    mqtt_title: "MQTT и Home Assistant", mqtt_enabled: "Публиковать в MQTT", mqtt_host: "Адрес брокера", mqtt_port: "Порт",
+    mqtt_user: "Пользователь", mqtt_pass: "Пароль", mqtt_discovery: "Автообнаружение Home Assistant", advanced: "Префиксы топиков",
+    mqtt_prefix: "Префикс топиков", mqtt_disc_prefix: "Префикс обнаружения", mqtt_topics: "Топики для автоматизаций",
+    k_broker: "Брокер", k_topic: "Топики", pass_set: "Сохранён; оставьте пустым",
+    device_title: "Имя и датчики", dev_name: "Имя, видно и в Home Assistant",
+    co2_threshold: "Тревога CO₂ выше, ppm", temp_offset: "Поправка температуры, °C", co2_led: "Мигать светодиодом выше порога",
+    cal_title: "Калибровка CO₂", cal_hint: "Текущее показание принимается за 400 ppm. Перед этим держите часы на улице или у открытого окна не меньше 20 минут.",
+    cal_btn: "Калибровать на 400 ppm", cal_confirm: "Часы 20 минут на свежем воздухе? Текущее показание станет 400 ppm.", cal_done: "Калибровка запущена.",
+    fw_title: "Обновление прошивки", fw_choose: "Выбрать firmware.bin", fw_none: "Файл не выбран", fw_upload: "Установить",
+    fw_hint: "Если новая прошивка не запустится, часы вернутся к текущей. Настройки сохранятся.",
+    k_version: "Версия", k_partition: "Раздел", k_idf: "ESP-IDF", k_heap: "Свободная память", k_reset: "Последний сброс", k_mac: "MAC",
+    ota_uploading: "Загрузка… {0}%", ota_done: "Установлено. Перезапуск…", ota_back: "Часы снова в сети, версия {0}.",
+    maint_title: "Перезапуск и сброс", reboot: "Перезапустить", forget: "Забыть Wi-Fi", factory: "Стереть все настройки",
+    reset_hint: "Без веб-страницы: включите часы в сеть три раза подряд, каждый раз отключая их раньше чем через пять секунд. Настройки Wi-Fi и MQTT сотрутся.",
+    confirm_reboot: "Перезапустить часы? Страница переподключится сама.", confirm_forget: "Забыть сеть Wi-Fi и настройки MQTT? Часы включат точку настройки.",
+    confirm_factory: "Стереть все настройки, включая раскладку экрана? Отменить это нельзя.", restarting: "Перезапуск…", back_online: "Часы снова в сети.",
+    cancel: "Отмена",
+    api_title: "Локальный HTTP API", api_hint: "Без ключей и аккаунтов. JSON на входе и выходе, кроме картинок экрана.",
+    offline: "Нет связи с часами. Повторяю…", error: "Ошибка: {0}", network_error: "часы не ответили",
+    tab_dev: "Разработчику", fw_manual: "Установить файл вручную", upd_notes: "Что нового",
+    upd_check: "Проверить обновления", upd_checking: "Проверка на GitHub…", upd_install: "Установить {0}", upd_installing: "Установка… {0}%",
+    upd_auto_check: "Проверять новые версии на GitHub раз в день", upd_auto_install: "Ставить новые версии автоматически ночью (03:00–05:00)",
+    k_latest: "Последний релиз", k_checked: "Проверено", upd_never: "ещё не проверялось", upd_none: "пока не опубликован", upd_ago: "{0} назад", just_now: "только что", upd_uptodate: "установлена последняя",
+    upd_new: "новая", upd_offline: "Подключите часы к интернету, чтобы проверить обновления.", upd_confirm: "Установить версию {0}? По окончании часы перезапустятся; настройки сохранятся.",
+    upd_started: "Загрузка {0}. Ход установки виден на экране часов.",
+    log_title: "Лог устройства", log_filter: "Уровни", log_all: "Все уровни", log_e: "Ошибки", log_ew: "Ошибки и предупреждения", log_ewi: "Без отладки",
+    log_search: "Фильтр по тексту…", log_pause: "Пауза", log_resume: "Продолжить", log_clear: "Очистить", log_save: "Скачать", log_follow: "Следить за новыми строками",
+    log_level: "Уровень логов на устройстве", log_tag: "Тег (* = все)", apply: "Применить", log_level_set: "Уровень логов {0}: {1}.",
+    log_hint: "Последние 12 КБ вывода с момента запуска часов. После перезапуска уровень снова info.",
+    log_lines: "строк: {0}", log_dropped: "старые строки перезаписаны", log_paused: "на паузе",
+    console_title: "Консоль API", console_method: "Метод", console_path: "Путь", console_body: "Тело JSON", console_send: "Отправить запрос",
+    raw_title: "Сырое состояние", raw_hint: "GET /api/state, обновляется каждые 5 секунд.",
+    footer: "{0} · прошивка {1} · {2}", units: ["д", "ч", "мин"],
+  },
+};
+
+const userLang = (navigator.languages || [navigator.language || ""]).some(l => l.startsWith("ru")) ? "ru" : "en";
+let lang = localStorage.getItem("lang") || userLang;
+if (!I18N[lang]) lang = "en";
+const t = (k, ...a) => String(I18N[lang][k] ?? I18N.en[k] ?? k).replace(/\{(\d)\}/g, (_, i) => a[i] ?? "");
+
+function applyI18n() {
+  document.documentElement.lang = lang;
+  $$("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+  $$("[data-i18n-placeholder]").forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  $$("[data-i18n-aria]").forEach(el => { el.setAttribute("aria-label", t(el.dataset.i18nAria)); el.title = t(el.dataset.i18nAria); });
+  $$("[data-i18n-alt]").forEach(el => { el.alt = t(el.dataset.i18nAlt); });
+  $$("[data-lang]").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang === lang));
+}
+
+/* ===================== theme ===================== */
+const darkQuery = matchMedia("(prefers-color-scheme: dark)");
+let theme = localStorage.getItem("theme") || "auto";
+function applyTheme() {
+  const dark = theme === "dark" || (theme === "auto" && darkQuery.matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  $$("[data-theme-btn]").forEach(b => b.setAttribute("aria-pressed", b.dataset.themeBtn === theme));
+}
+darkQuery.addEventListener("change", applyTheme);
+applyTheme();
+
+/* ===================== API ===================== */
+async function api(path, opts = {}) {
+  const init = { method: opts.method || "GET", headers: {} };
+  if (opts.json !== undefined) {
+    init.body = JSON.stringify(opts.json);
+    init.headers["Content-Type"] = "application/json";
+  }
+  let r;
+  try { r = await fetch(path, init); } catch (e) { throw new Error(t("network_error")); }
+  const type = r.headers.get("Content-Type") || "";
+  const data = type.includes("json") ? await r.json() : await r.blob();
+  if (!r.ok) throw new Error((data && data.error) || r.statusText);
+  return data;
+}
+
+function setStatus(id, text, err = false) {
+  const el = $("#" + id);
+  el.textContent = text;
+  el.classList.toggle("err", err);
+}
+
+/* Runs an action, marks the button busy (with "Saving…" if asked) and
+ * reports errors next to it. */
+async function run(statusId, fn, btn, busyKey) {
+  const label = btn ? btn.textContent : "";
+  if (btn) {
+    btn.setAttribute("aria-busy", "true");
+    if (busyKey) btn.textContent = t(busyKey);
+  }
+  try { await fn(); }
+  catch (e) { setStatus(statusId, t("error", e.message), true); }
+  finally {
+    if (btn) { btn.removeAttribute("aria-busy"); if (busyKey) btn.textContent = label; }
+  }
+}
+
+/* Styled replacement for window.confirm(). */
+function ask(text, okLabel, danger = false) {
+  const dlg = $("#confirm");
+  $("#confirm-text").textContent = text;
+  const ok = $("#confirm-ok");
+  ok.textContent = okLabel;
+  ok.className = danger ? "btn danger solid" : "btn";
+  dlg.returnValue = "";
+  dlg.showModal();
+  /* a stray Enter must not erase anything */
+  (danger ? $("#confirm [value=cancel]") : ok).focus();
+  return new Promise(resolve => dlg.addEventListener("close", () => resolve(dlg.returnValue === "ok"), { once: true }));
+}
+
+function showBlob(img, blob) {
+  const url = URL.createObjectURL(blob);
+  const old = img.dataset.url;
+  img.onload = () => { if (old) URL.revokeObjectURL(old); };
+  img.dataset.url = url;
+  img.src = url;
+}
+
+
+/* ===================== tabs ===================== */
+const TABS = ["overview", "display", "network", "system", "dev"];
+function selectTab(name, focus = false) {
+  $$("[role=tab]").forEach(b => {
+    const on = b.dataset.tab === name;
+    b.setAttribute("aria-selected", on);
+    b.tabIndex = on ? 0 : -1;
+    if (on && focus) b.focus();
+  });
+  $$("[role=tabpanel]").forEach(s => s.classList.toggle("active", s.id === "tab-" + name));
+  if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
+  if (name === "display") schedulePreview();
+  if (name === "dev") { pollLogs(); renderRaw(); }
+  if (name === "system") refreshUpdate();
+}
+$$("[role=tab]").forEach(b => {
+  b.addEventListener("click", () => selectTab(b.dataset.tab));
+  b.addEventListener("keydown", e => {
+    const i = TABS.indexOf(b.dataset.tab);
+    const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: TABS.length - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    selectTab(TABS[(next + TABS.length) % TABS.length], true);
+  });
+});
+$$("[role=tabpanel]").forEach(p => { p.tabIndex = 0; });
+
+/* ===================== state ===================== */
+let state = null;
+let config = null;
+let draft = null;
+
+/* 16x16 icons from src/icons.h, the same pixels the panel shows */
+const ICONS = {
+  temperature: "M5 2h3v1h-3zM11 2h3v1h-3zM4 3h5v1h-5zM11 3h1v1h-1zM13 3h1v1h-1zM4 4h5v1h-5zM11 4h3v1h-3zM4 5h5v1h-5zM4 6h5v1h-5zM4 7h5v1h-5zM4 8h2v1h-2zM7 8h2v1h-2zM3 9h3v1h-3zM7 9h3v1h-3zM3 10h2v1h-2zM8 10h2v1h-2zM3 11h2v1h-2zM8 11h2v1h-2zM3 12h7v1h-7zM4 13h5v1h-5z",
+  humidity: "M7 2h2v1h-2zM6 3h4v1h-4zM5 4h6v1h-6zM5 5h6v1h-6zM4 6h8v1h-8zM4 7h8v1h-8zM3 8h10v1h-10zM3 9h2v1h-2zM6 9h7v1h-7zM3 10h2v1h-2zM7 10h6v1h-6zM4 11h2v1h-2zM8 11h4v1h-4zM4 12h3v1h-3zM9 12h3v1h-3zM5 13h6v1h-6z",
+  pressure: "M5 2h6v1h-6zM4 3h8v1h-8zM3 4h10v1h-10zM2 5h3v1h-3zM6 5h1v1h-1zM9 5h1v1h-1zM11 5h3v1h-3zM2 6h5v1h-5zM9 6h5v1h-5zM2 7h2v1h-2zM5 7h2v1h-2zM9 7h2v1h-2zM12 7h2v1h-2zM2 8h5v1h-5zM9 8h5v1h-5zM2 9h5v1h-5zM9 9h5v1h-5zM2 10h4v1h-4zM10 10h4v1h-4zM3 11h4v1h-4zM9 11h4v1h-4zM4 12h8v1h-8zM5 13h6v1h-6z",
+  co2: "M10 2h4v1h-4zM2 3h3v1h-3zM9 3h5v1h-5zM2 4h5v1h-5zM8 4h6v1h-6zM2 5h6v1h-6zM9 5h5v1h-5zM2 6h6v1h-6zM10 6h3v1h-3zM3 7h6v1h-6zM10 7h1v1h-1zM4 8h5v1h-5zM6 9h3v1h-3zM7 10h2v1h-2zM7 11h2v1h-2zM7 12h2v1h-2zM7 13h2v1h-2z",
+};
+const icon = id => `<svg viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="${ICONS[id]}"/></svg>`;
+
+const num = (v, d = 0) => v === null || v === undefined ? "—"
+  : new Intl.NumberFormat(lang, { minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: false }).format(v);
+function uptime(s) {
+  const [ud, uh, um] = I18N[lang].units;
+  const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  return (d ? `${d} ${ud} ` : "") + (d || h ? `${h} ${uh} ` : "") + `${m} ${um}`;
+}
+/* The clock reports its local time without an offset: show those exact
+ * components, formatted for the chosen language. */
+function clockTime(local) {
+  const [d, tm] = local.split("T");
+  const [y, mo, da] = d.split("-").map(Number);
+  const [h, mi] = tm.split(":").map(Number);
+  return new Intl.DateTimeFormat(lang, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })
+    .format(new Date(Date.UTC(y, mo - 1, da, h, mi)));
+}
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function renderReadings() {
+  const s = state.sensors, d = config ? config.display : { temp_unit: "c", pressure_unit: "hpa" };
+  let temp = s.temperature_c, tu = "°C";
+  if (temp !== null && d.temp_unit === "f") { temp = temp * 9 / 5 + 32; tu = "°F"; }
+  let pr = s.pressure_hpa, pu = t("u_hpa");
+  if (pr !== null && d.pressure_unit === "mmhg") { pr = pr * 0.750062; pu = t("u_mmhg"); }
+  const items = [
+    ["temperature", num(temp, 1), tu],
+    ["humidity", num(s.humidity_pct), "%"],
+    ["pressure", num(pr), pu],
+    ["co2", num(s.co2_ppm), "ppm", s.co2_high],
+  ];
+  $("#readings").innerHTML = items.map(([k, v, u, alarm]) => `
+    <div class="reading${alarm ? " alarm" : ""}">
+      <div class="label">${icon(k)}${t(k)}</div>
+      <div class="value">${v}<small>${u}</small></div>
+    </div>`).join("");
+}
+
+function kv(el, rows) {
+  $(el).innerHTML = rows.filter(Boolean).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("");
+}
+const dot = (ok, text) => `<span class="dot ${ok ? "ok" : "bad"}" aria-hidden="true"></span>${esc(text)}`;
+
+function bars(rssi) {
+  const n = rssi >= -55 ? 4 : rssi >= -65 ? 3 : rssi >= -75 ? 2 : 1;
+  return `<span class="bars" aria-hidden="true">${[1, 2, 3, 4].map(i => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</span>`;
+}
+
+function renderState() {
+  const s = state, w = s.wifi, m = s.mqtt;
+  $("#dev-name").textContent = s.device.name;
+  document.title = s.device.name;
+  renderReadings();
+
+  kv("#overview-kv", [
+    [t("k_time"), s.time.valid ? esc(clockTime(s.time.local)) + ` <span class="muted">${esc(s.time.timezone)}</span>` : t("time_unset")],
+    [t("k_wifi"), w.connected ? dot(true, `${w.ssid} · ${w.ip}`) : dot(false, w.ap_active ? `${t("k_ap")}: ${w.ap_ssid}` : t("disconnected"))],
+    [t("k_mqtt"), m.enabled ? dot(m.connected, m.connected ? t("connected") : t("disconnected")) : `<span class="dot" aria-hidden="true"></span>${t("off")}`],
+    [t("k_notice"), s.notification ? esc(s.notification.text) : "—"],
+    [t("k_uptime"), uptime(s.device.uptime_s)],
+  ]);
+
+  kv("#wifi-kv", [
+    [t("k_network"), w.connected ? dot(true, w.ssid) : dot(false, w.ssid || t("disconnected"))],
+    w.connected && [t("k_ip"), `<a href="http://${esc(w.ip)}/">${esc(w.ip)}</a>`],
+    w.connected && [t("k_signal"), `${bars(w.rssi)} ${w.rssi} dBm`],
+    [t("k_hostname"), `<a href="http://${esc(s.device.hostname)}.local/" translate="no">${esc(s.device.hostname)}.local</a>`],
+    [t("k_ap"), w.ap_active ? dot(true, `${t("ap_on")} · ${w.ap_ssid}`) : t("ap_off")],
+  ]);
+  $("#wifi-pass").placeholder = w.configured ? t("keep_pass") : "";
+
+  kv("#mqtt-kv", [
+    [t("k_mqtt"), m.enabled ? dot(m.connected, m.connected ? t("connected") : t("disconnected")) : t("off")],
+    [t("k_topic"), esc(m.base_topic) + "/…"],
+  ]);
+  const b = m.base_topic;
+  $("#mqtt-topics").textContent =
+`${b}/state                 ← JSON
+${b}/status                ← online / offline
+${b}/notify                → {"text":"…","ttl":600,"fullscreen":false}
+${b}/notification/set      → plain text
+${b}/command               → clear_notification | reboot | calibrate_co2
+${b}/layout/set            → classic | clock | co2 | sensors
+${b}/co2_threshold/set     → 400…5000`;
+
+  kv("#fw-kv", [
+    [t("k_version"), esc(s.device.version)],
+    [t("k_partition"), esc(s.device.partition)],
+    [t("k_idf"), esc(s.device.idf)],
+    [t("k_heap"), `${num(s.device.heap_free / 1024)} KB (min ${num(s.device.heap_min / 1024)} KB)`],
+    [t("k_reset"), esc(s.device.reset_reason)],
+    [t("k_mac"), esc(s.device.mac)],
+  ]);
+  const host = w.ip || "192.168.4.1";
+  $("#api-example").textContent =
+`curl http://${host}/api/state
+curl -X POST http://${host}/api/notify \\
+     -d '{"text":"${lang === "ru" ? "Проветрите" : "Open the window"}","ttl":600}'`;
+  $("#footer").textContent = t("footer", s.device.hostname, s.device.version, s.device.mac);
+
+  const banner = $("#setup-banner");
+  const setup = w.ap_active && !w.connected;
+  banner.hidden = !setup;
+  if (setup) {
+    banner.classList.toggle("alarm", w.configured);
+    banner.textContent = w.configured ? t("setup_banner_failed", w.ssid) : t("setup_banner");
+  }
+}
+
+async function refreshState() {
+  try {
+    state = await api("/api/state");
+    renderState();
+    renderRaw();
+    if (upd) renderUpdate();
+  } catch (e) {
+    $("#footer").textContent = t("offline");
+  }
+}
+
+async function refreshScreen() {
+  if (document.hidden) return;
+  try { showBlob($("#screen"), await api("/api/screen.bmp")); } catch (e) { /* offline: keep the last frame */ }
+}
+
+/* ===================== display editor ===================== */
+const LAYOUT_ART = {
+  classic: '<rect x="4" y="9" width="30" height="9"/><rect x="8" y="22" width="22" height="3"/><rect x="42" y="7" width="16" height="3"/><rect x="42" y="13" width="12" height="3"/><rect x="42" y="19" width="16" height="3"/><rect x="42" y="25" width="12" height="3"/>',
+  clock: '<rect x="8" y="6" width="48" height="15"/><rect x="16" y="25" width="32" height="3"/>',
+  co2: '<rect x="14" y="5" width="36" height="14"/><rect x="2" y="23" width="60" height="1"/><rect x="4" y="27" width="10" height="3"/><rect x="20" y="27" width="10" height="3"/><rect x="36" y="27" width="10" height="3"/><rect x="50" y="27" width="10" height="3"/>',
+  sensors: '<rect x="6" y="7" width="20" height="6"/><rect x="38" y="7" width="20" height="6"/><rect x="6" y="21" width="20" height="6"/><rect x="38" y="21" width="20" height="6"/>',
+};
+
+const isDirty = () => !!(config && draft && JSON.stringify(draft.display) !== JSON.stringify(config.display));
+function updateDirty() {
+  const dirty = isDirty();
+  $("#display-dirty").hidden = !dirty;
+  $("#display-reset").hidden = !dirty;
+}
+function changed() { updateDirty(); schedulePreview(); }
+
+function renderLayouts() {
+  const legend = $("#layouts legend").outerHTML;
+  $("#layouts").innerHTML = legend + Object.keys(LAYOUT_ART).map(l => `
+    <label><input type="radio" name="layout" value="${l}"${draft.display.layout === l ? " checked" : ""}>
+      <svg viewBox="0 0 64 34" aria-hidden="true"><rect x=".5" y=".5" width="63" height="33" fill="none" stroke="currentColor" opacity=".35"/><g fill="currentColor">${LAYOUT_ART[l]}</g></svg>
+      <span>${t("l_" + l)}</span></label>`).join("");
+  $("#layouts legend").textContent = t("layout_legend");
+  $$("#layouts input").forEach(i => i.addEventListener("change", () => { draft.display.layout = i.value; changed(); }));
+}
+
+function renderMetrics() {
+  const list = draft.display.metrics;
+  $("#metrics").innerHTML = list.map((m, i) => `
+    <li class="${m.enabled ? "" : "off"}">
+      <label><input type="checkbox" data-i="${i}"${m.enabled ? " checked" : ""}>${icon(m.id)}<span>${t(m.id)}</span></label>
+      <button type="button" class="icon-btn" data-move="${i}" data-dir="-1" aria-label="${esc(t("up", t(m.id)))}"${i === 0 ? " disabled" : ""}>↑</button>
+      <button type="button" class="icon-btn" data-move="${i}" data-dir="1" aria-label="${esc(t("down", t(m.id)))}"${i === list.length - 1 ? " disabled" : ""}>↓</button>
+    </li>`).join("");
+  $$("#metrics input").forEach(c => c.addEventListener("change", () => {
+    list[+c.dataset.i].enabled = c.checked;
+    c.closest("li").classList.toggle("off", !c.checked);
+    changed();
+  }));
+  $$("#metrics [data-move]").forEach(b => b.addEventListener("click", () => {
+    const i = +b.dataset.move, j = i + +b.dataset.dir;
+    [list[i], list[j]] = [list[j], list[i]];
+    renderMetrics(); changed();
+    /* keep focus on the moved item's button, or its other arrow at the edges */
+    ($(`#metrics [data-move="${j}"][data-dir="${b.dataset.dir}"]:not(:disabled)`) ||
+     $(`#metrics [data-move="${j}"]:not(:disabled)`))?.focus();
+  }));
+}
+
+/* name, POSIX TZ */
+const ZONES = [
+  ["Europe/Kaliningrad", "EET-2"], ["Europe/Moscow", "MSK-3"], ["Europe/Samara", "<+04>-4"],
+  ["Asia/Yekaterinburg", "<+05>-5"], ["Asia/Omsk", "<+06>-6"], ["Asia/Novosibirsk", "<+07>-7"],
+  ["Asia/Krasnoyarsk", "<+07>-7"], ["Asia/Irkutsk", "<+08>-8"], ["Asia/Yakutsk", "<+09>-9"],
+  ["Asia/Vladivostok", "<+10>-10"], ["Asia/Magadan", "<+11>-11"], ["Asia/Kamchatka", "<+12>-12"],
+  ["Europe/Minsk", "<+03>-3"], ["Europe/Istanbul", "<+03>-3"], ["Europe/Kyiv", "EET-2EEST,M3.5.0/3,M10.5.0/4"],
+  ["Europe/Berlin", "CET-1CEST,M3.5.0,M10.5.0/3"], ["Europe/Paris", "CET-1CEST,M3.5.0,M10.5.0/3"],
+  ["Europe/London", "GMT0BST,M3.5.0/1,M10.5.0"], ["UTC", "UTC0"],
+  ["Asia/Tbilisi", "<+04>-4"], ["Asia/Yerevan", "<+04>-4"], ["Asia/Baku", "<+04>-4"], ["Asia/Dubai", "<+04>-4"],
+  ["Asia/Almaty", "<+05>-5"], ["Asia/Tashkent", "<+05>-5"], ["Asia/Bishkek", "<+06>-6"],
+  ["Asia/Kolkata", "IST-5:30"], ["Asia/Shanghai", "CST-8"], ["Asia/Tokyo", "JST-9"],
+  ["America/New_York", "EST5EDT,M3.2.0,M11.1.0"], ["America/Chicago", "CST6CDT,M3.2.0,M11.1.0"],
+  ["America/Denver", "MST7MDT,M3.2.0,M11.1.0"], ["America/Los_Angeles", "PST8PDT,M3.2.0,M11.1.0"],
+  ["Australia/Sydney", "AEST-10AEDT,M10.1.0,M4.1.0/3"],
+];
+
+function renderZones() {
+  const sel = $("#f-timezone");
+  const cur = draft.display.timezone;
+  const known = ZONES.some(([n]) => n === cur);
+  sel.innerHTML = ZONES.map(([n]) => `<option value="${n}">${n.replace(/_/g, " ")}</option>`).join("") +
+    `<option value="">${t("tz_other")}</option>`;
+  sel.value = known ? cur : "";
+  $("#tz-custom-wrap").hidden = known;
+  $("#f-tz_posix").value = draft.display.tz_posix;
+}
+
+const DISPLAY_FIELDS = {
+  date_format: "value", language: "value", temp_unit: "value", pressure_unit: "value",
+  show_date: "checked", hour24: "checked", invert: "checked", rotate180: "checked",
+};
+
+function fillDisplayForm() {
+  for (const [k, prop] of Object.entries(DISPLAY_FIELDS)) $("#f-" + k)[prop] = draft.display[k];
+  renderLayouts();
+  renderMetrics();
+  renderZones();
+  fillConnectNotice();
+  updateDirty();
+}
+
+for (const [k, prop] of Object.entries(DISPLAY_FIELDS)) {
+  $("#f-" + k).addEventListener("change", e => { draft.display[k] = e.target[prop]; changed(); });
+}
+/* numeric select: unknown values (set through the API) still show up */
+function fillConnectNotice() {
+  const sel = $("#f-connect_notice_s"), v = String(draft.display.connect_notice_s ?? 30);
+  if (![...sel.options].some(o => o.value === v)) sel.add(new Option(`${v} s`, v));
+  sel.value = v;
+}
+$("#f-connect_notice_s").addEventListener("change", e => { draft.display.connect_notice_s = +e.target.value; changed(); });
+$("#f-timezone").addEventListener("change", e => {
+  const z = ZONES.find(([n]) => n === e.target.value);
+  $("#tz-custom-wrap").hidden = !!z;
+  if (z) { draft.display.timezone = z[0]; draft.display.tz_posix = z[1]; }
+  else { draft.display.timezone = "Custom"; $("#f-tz_posix").focus(); }
+  $("#f-tz_posix").value = draft.display.tz_posix;
+  changed();
+});
+$("#f-tz_posix").addEventListener("input", e => { draft.display.tz_posix = e.target.value.trim(); draft.display.timezone = "Custom"; changed(); });
+["#pv-notice", "#pv-full", "#pv-setup"].forEach(s => $(s).addEventListener("change", schedulePreview));
+
+let previewTimer = null, previewBusy = false, previewAgain = false;
+function schedulePreview() {
+  if (!draft) return;
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(renderPreview, 250);
+}
+async function renderPreview() {
+  if (previewBusy) { previewAgain = true; return; }
+  previewBusy = true;
+  const body = { settings: { display: draft.display } };
+  if ($("#pv-setup").checked) body.screen = "setup";
+  else if ($("#pv-notice").checked || $("#pv-full").checked) body.notification = { text: t("preview_sample"), fullscreen: $("#pv-full").checked };
+  try {
+    showBlob($("#preview"), await api("/api/preview", { method: "POST", json: body }));
+    if ($("#display-status").classList.contains("err")) setStatus("display-status", "");
+  } catch (e) { setStatus("display-status", t("error", e.message), true); }
+  previewBusy = false;
+  if (previewAgain) { previewAgain = false; renderPreview(); }
+}
+
+$("#display-save").addEventListener("click", e => run("display-status", async () => {
+  config = await api("/api/config", { method: "POST", json: { display: draft.display } });
+  draft = structuredClone(config);
+  fillDisplayForm();
+  setStatus("display-status", t("saved_display"));
+  setTimeout(refreshScreen, 4000);
+}, e.currentTarget, "saving"));
+$("#display-reset").addEventListener("click", () => {
+  draft = structuredClone(config);
+  fillDisplayForm();
+  schedulePreview();
+  setStatus("display-status", "");
+});
+addEventListener("beforeunload", e => { if (isDirty()) { e.preventDefault(); e.returnValue = t("leave_unsaved"); } });
+
+/* ===================== notifications ===================== */
+$("#notify-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const text = $("#notify-text").value.trim();
+  if (!text) { setStatus("notify-status", t("notify_empty"), true); $("#notify-text").focus(); return; }
+  run("notify-status", async () => {
+    await api("/api/notify", { method: "POST", json: { text, ttl: +$("#notify-ttl").value, fullscreen: $("#notify-full").checked } });
+    setStatus("notify-status", t("notify_sent"));
+    refreshState();
+    setTimeout(refreshScreen, 4000);
+  }, e.submitter);
+});
+$("#notify-clear").addEventListener("click", e => run("notify-status", async () => {
+  await api("/api/notify", { method: "DELETE" });
+  setStatus("notify-status", t("notify_cleared"));
+  refreshState();
+  setTimeout(refreshScreen, 4000);
+}, e.currentTarget));
+
+/* ===================== Wi-Fi ===================== */
+$("#wifi-show").addEventListener("change", e => { $("#wifi-pass").type = e.target.checked ? "text" : "password"; });
+
+$("#wifi-scan").addEventListener("click", e => run("wifi-status", async () => {
+  const nets = await api("/api/wifi/scan");
+  $("#nets").innerHTML = nets.map(n => `<li><button type="button" data-ssid="${esc(n.ssid)}">
+    ${bars(n.rssi)}<span class="name">${esc(n.ssid)}</span><span class="muted mono">${n.rssi} dBm${n.secure ? "" : " · open"}</span></button></li>`).join("");
+  $$("#nets button").forEach(b => b.addEventListener("click", () => {
+    $("#wifi-ssid").value = b.dataset.ssid;
+    $("#wifi-pass").value = "";
+    $("#wifi-pass").focus();
+  }));
+  setStatus("wifi-status", nets.length ? "" : t("no_networks"));
+}, e.currentTarget, "scanning"));
+
+$("#wifi-form").addEventListener("submit", e => {
+  e.preventDefault();
+  run("wifi-status", async () => {
+    const ssid = $("#wifi-ssid").value.trim();
+    const pass = $("#wifi-pass").value;
+    const body = { ssid };
+    if (pass || !state.wifi.configured || ssid !== state.wifi.ssid) body.password = pass;
+    await api("/api/wifi", { method: "POST", json: body });
+    setStatus("wifi-status", t("wifi_connecting", ssid));
+    /* The radio may switch channels while connecting: poll until the clock
+     * reports an address (or give up after ~45 s). */
+    for (let i = 0; i < 15; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      try {
+        const s = await api("/api/state");
+        if (s.wifi.connected && s.wifi.ssid === ssid) {
+          state = s; renderState();
+          setStatus("wifi-status", t("wifi_ok", `http://${s.wifi.ip}/`));
+          return;
+        }
+      } catch (err) { /* the phone may be reconnecting to the access point */ }
+    }
+    setStatus("wifi-status", t("wifi_fail"), true);
+  }, e.submitter);
+});
+
+/* ===================== MQTT ===================== */
+const MQTT_TEXT = ["host", "username", "prefix", "discovery_prefix"];
+function fillMqttForm() {
+  const m = config.mqtt;
+  $("#m-enabled").checked = m.enabled;
+  $("#m-discovery").checked = m.discovery;
+  $("#m-port").value = m.port;
+  MQTT_TEXT.forEach(k => { $("#m-" + k).value = m[k]; });
+  $("#m-password").value = "";
+  $("#m-password").placeholder = m.password_set ? t("pass_set") : "";
+  $("#m-prefix").placeholder = state ? state.mqtt.base_topic : "";
+}
+$("#mqtt-form").addEventListener("submit", e => {
+  e.preventDefault();
+  run("mqtt-status", async () => {
+    const m = { enabled: $("#m-enabled").checked, discovery: $("#m-discovery").checked, port: +$("#m-port").value || 1883 };
+    MQTT_TEXT.forEach(k => { m[k] = $("#m-" + k).value.trim(); });
+    if ($("#m-password").value) m.password = $("#m-password").value;
+    config = await api("/api/config", { method: "POST", json: { mqtt: m } });
+    fillMqttForm();
+    setStatus("mqtt-status", t("saved"));
+    setTimeout(refreshState, 3000);
+  }, e.submitter, "saving");
+});
+
+/* ===================== device ===================== */
+function fillDeviceForm() {
+  $("#d-name").value = config.name;
+  $("#d-co2_threshold_ppm").value = config.sensors.co2_threshold_ppm;
+  $("#d-temp_offset_c").value = config.sensors.temp_offset_c;
+  $("#d-co2_led").checked = config.sensors.co2_led;
+}
+$("#device-form").addEventListener("submit", e => {
+  e.preventDefault();
+  run("device-status", async () => {
+    config = await api("/api/config", { method: "POST", json: {
+      name: $("#d-name").value.trim(),
+      sensors: {
+        co2_threshold_ppm: +$("#d-co2_threshold_ppm").value,
+        temp_offset_c: +$("#d-temp_offset_c").value,
+        co2_led: $("#d-co2_led").checked,
+      } } });
+    fillDeviceForm();
+    setStatus("device-status", t("saved"));
+    refreshState();
+  }, e.submitter, "saving");
+});
+
+$("#cal-btn").addEventListener("click", async e => {
+  const btn = e.currentTarget;
+  if (!await ask(t("cal_confirm"), t("cal_btn"))) return;
+  run("cal-status", async () => {
+    await api("/api/co2/calibrate", { method: "POST" });
+    setStatus("cal-status", t("cal_done"));
+  }, btn);
+});
+
+/* ===================== maintenance ===================== */
+async function waitForReboot(done) {
+  await new Promise(r => setTimeout(r, 5000));
+  for (let i = 0; i < 40; i++) {
+    try {
+      state = await api("/api/state");
+      renderState();
+      done(state);
+      return;
+    } catch (e) { await new Promise(r => setTimeout(r, 2000)); }
+  }
+}
+
+async function system(btn, path, confirmKey, danger) {
+  if (!await ask(t(confirmKey), btn.textContent, danger)) return;
+  run("maint-status", async () => {
+    await api(path, { method: "POST" });
+    setStatus("maint-status", t("restarting"));
+    waitForReboot(() => setStatus("maint-status", t("back_online")));
+  }, btn);
+}
+$("#btn-reboot").addEventListener("click", e => system(e.currentTarget, "/api/system/reboot", "confirm_reboot", false));
+$("#btn-forget").addEventListener("click", e => system(e.currentTarget, "/api/system/forget-wifi", "confirm_forget", true));
+$("#btn-factory").addEventListener("click", e => system(e.currentTarget, "/api/system/factory-reset", "confirm_factory", true));
+
+function showFileName() {
+  const f = $("#ota-file").files[0];
+  const el = $("#ota-file-name");
+  el.classList.toggle("chosen", !!f);
+  $("#ota-submit").disabled = !f;
+  if (f) {
+    el.removeAttribute("data-i18n");
+    el.textContent = `${f.name} · ${num(f.size / 1024)} KB`;
+  } else {
+    el.dataset.i18n = "fw_none";
+    el.textContent = t("fw_none");
+  }
+}
+$("#ota-file").addEventListener("change", showFileName);
+
+$("#ota-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const file = $("#ota-file").files[0];
+  if (!file) return;
+  const bar = $("#ota-progress");
+  const btn = $("#ota-submit");
+  bar.hidden = false; bar.value = 0;
+  btn.setAttribute("aria-busy", "true");
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/api/ota");
+  xhr.upload.onprogress = ev => {
+    if (!ev.lengthComputable) return;
+    const p = Math.round(ev.loaded / ev.total * 100);
+    bar.value = p;
+    setStatus("ota-status", t("ota_uploading", p));
+  };
+  xhr.onload = () => {
+    btn.removeAttribute("aria-busy");
+    if (xhr.status === 200) {
+      setStatus("ota-status", t("ota_done"));
+      waitForReboot(s => setStatus("ota-status", t("ota_back", s.device.version)));
+    } else {
+      let msg = xhr.statusText;
+      try { msg = JSON.parse(xhr.responseText).error; } catch (err) { /* plain text */ }
+      bar.hidden = true;
+      setStatus("ota-status", t("error", msg), true);
+    }
+  };
+  xhr.onerror = () => { btn.removeAttribute("aria-busy"); bar.hidden = true; setStatus("ota-status", t("error", t("network_error")), true); };
+  xhr.send(file);
+});
+
+/* ===================== updates ===================== */
+let upd = null;
+
+function ago(sec) {
+  return sec < 60 ? t("just_now") : t("upd_ago", uptime(sec).trim());
+}
+
+function renderUpdate() {
+  if (!upd) return;
+  const online = state && state.wifi.connected;
+  kv("#upd-kv", [
+    [t("k_latest"), !upd.checked ? t("upd_never")
+      : !upd.latest ? t("upd_none")
+      : esc(upd.latest) + (upd.available ? `<span class="badge">${t("upd_new")}</span>` : ` <span class="muted">${t("upd_uptodate")}</span>`)],
+    upd.checked_ago_s !== null && [t("k_checked"), ago(upd.checked_ago_s)],
+  ]);
+  $("#upd-notes-box").hidden = !upd.notes;
+  $("#upd-notes").textContent = upd.notes;
+
+  const busy = upd.state !== "idle";
+  const inst = $("#upd-install");
+  inst.hidden = !upd.available;
+  inst.textContent = upd.state === "installing" ? t("upd_installing", upd.progress) : t("upd_install", upd.latest);
+  inst.toggleAttribute("aria-busy", busy);
+  const chk = $("#upd-check");
+  chk.textContent = upd.state === "checking" ? t("upd_checking") : t("upd_check");
+  chk.toggleAttribute("aria-busy", busy);
+  chk.disabled = !online;
+
+  $("#upd-auto-check").checked = upd.auto_check;
+  $("#upd-auto-install").checked = upd.auto_install;
+  if (upd.error) setStatus("upd-status", t("error", upd.error), true);
+  else if (!online) setStatus("upd-status", t("upd_offline"));
+  else if ($("#upd-status").classList.contains("err")) setStatus("upd-status", "");
+}
+
+async function refreshUpdate() {
+  try { upd = await api("/api/update"); renderUpdate(); } catch (e) { /* offline */ }
+  /* poll faster while the clock is talking to GitHub */
+  if (upd && upd.state !== "idle") setTimeout(refreshUpdate, 1500);
+}
+
+$("#upd-check").addEventListener("click", e => run("upd-status", async () => {
+  await api("/api/update/check", { method: "POST" });
+  setStatus("upd-status", "");
+  setTimeout(refreshUpdate, 500);
+}, e.currentTarget));
+
+$("#upd-install").addEventListener("click", async e => {
+  const btn = e.currentTarget;
+  if (!await ask(t("upd_confirm", upd.latest), btn.textContent)) return;
+  run("upd-status", async () => {
+    await api("/api/update/install", { method: "POST" });
+    setStatus("upd-status", t("upd_started", upd.latest));
+    setTimeout(refreshUpdate, 1000);
+    waitForReboot(s => setStatus("upd-status", t("ota_back", s.device.version)));
+  }, btn);
+});
+
+function saveUpdatePrefs(e) {
+  const check = $("#upd-auto-check"), auto = $("#upd-auto-install");
+  if (e.target === auto && auto.checked) check.checked = true; /* installing needs checking */
+  if (e.target === check && !check.checked) auto.checked = false;
+  run("upd-status", async () => {
+    config = await api("/api/config", { method: "POST", json: { update: { check: check.checked, auto: auto.checked } } });
+    setStatus("upd-status", t("saved"));
+    refreshUpdate();
+  });
+}
+$("#upd-auto-check").addEventListener("change", saveUpdatePrefs);
+$("#upd-auto-install").addEventListener("change", saveUpdatePrefs);
+
+/* ===================== developer tools ===================== */
+const LOG_MAX_LINES = 3000;
+let logPos = 0, logLines = [], logPartial = "", logPaused = false, logDropped = false, logTimer = null;
+
+const ANSI = /\x1b\[[0-9;]*m/g;
+const logLevel = line => (/^([EWIDV]) \(/.exec(line) || [, ""])[1];
+const reEscape = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+function renderLog() {
+  const filter = $("#log-filter").value;
+  const q = $("#log-search").value.trim().toLowerCase();
+  const el = $("#log");
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  const shown = logLines.filter(l => (!filter || filter.includes(logLevel(l))) && (!q || l.toLowerCase().includes(q)));
+  const hl = q ? new RegExp(reEscape(esc(q)), "gi") : null;
+  el.innerHTML = shown.map(l => {
+    let h = esc(l);
+    if (hl) h = h.replace(hl, m => `<mark>${m}</mark>`);
+    return `<span class="${logLevel(l)}">${h}</span>`;
+  }).join("\n");
+  if ($("#log-follow").checked && atBottom) el.scrollTop = el.scrollHeight;
+  const info = [t("log_lines", shown.length)];
+  if (logDropped) info.push(t("log_dropped"));
+  if (logPaused) info.push(t("log_paused"));
+  $("#log-info").textContent = info.join(" · ");
+}
+
+async function pollLogs() {
+  clearTimeout(logTimer);
+  if (!$("#tab-dev").classList.contains("active") || document.hidden) return;
+  if (!logPaused) {
+    try {
+      const r = await api(`/api/logs?since=${logPos}`);
+      if (r.dropped && logPos !== 0) logDropped = true;
+      logPos = r.next;
+      if (r.text) {
+        const parts = (logPartial + r.text.replace(ANSI, "")).split("\n");
+        logPartial = parts.pop();
+        logLines.push(...parts.filter(l => l.trim() !== ""));
+        if (logLines.length > LOG_MAX_LINES) logLines.splice(0, logLines.length - LOG_MAX_LINES);
+      }
+      renderLog();
+    } catch (e) { /* offline: keep polling */ }
+  }
+  logTimer = setTimeout(pollLogs, 2000);
+}
+
+$("#log-filter").addEventListener("change", renderLog);
+$("#log-search").addEventListener("input", renderLog);
+$("#log-follow").addEventListener("change", e => { if (e.target.checked) $("#log").scrollTop = $("#log").scrollHeight; });
+$("#log-pause").addEventListener("click", e => {
+  logPaused = !logPaused;
+  e.currentTarget.setAttribute("aria-pressed", logPaused);
+  e.currentTarget.textContent = t(logPaused ? "log_resume" : "log_pause");
+  renderLog();
+  if (!logPaused) pollLogs();
+});
+$("#log-clear").addEventListener("click", () => { logLines = []; logDropped = false; renderLog(); });
+$("#log-save").addEventListener("click", () => {
+  const blob = new Blob([logLines.join("\n") + "\n"], { type: "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${state ? state.device.hostname : "eink-clock"}-${new Date().toISOString().slice(0, 19).replace(/:/g, "")}.log`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$("#log-level-set").addEventListener("click", e => {
+  const level = $("#log-level").value, tag = $("#log-tag").value.trim() || "*";
+  run("log-status", async () => {
+    await api("/api/log-level", { method: "POST", json: { level, tag } });
+    setStatus("log-status", t("log_level_set", tag, level));
+  }, e.currentTarget);
+});
+
+function renderRaw() {
+  if (state && $("#tab-dev").classList.contains("active")) $("#raw-state").textContent = JSON.stringify(state, null, 2);
+}
+
+$("#console-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const method = $("#console-method").value, path = $("#console-path").value.trim(), body = $("#console-body").value.trim();
+  run("console-status", async () => {
+    const init = { method };
+    if (method !== "GET" && body) {
+      JSON.parse(body); /* throws a readable error on bad JSON */
+      init.body = body;
+      init.headers = { "Content-Type": "application/json" };
+    }
+    const t0 = performance.now();
+    const r = await fetch(path, init);
+    const ms = Math.round(performance.now() - t0);
+    const type = r.headers.get("Content-Type") || "";
+    setStatus("console-status", `${r.status} ${r.statusText} · ${ms} ms · ${type || "—"}`, !r.ok);
+    const out = $("#console-out");
+    if (type.includes("json")) out.textContent = JSON.stringify(await r.json(), null, 2);
+    else if (type.startsWith("text")) out.textContent = await r.text();
+    else out.textContent = `${(await r.blob()).size} bytes`;
+  }, e.submitter);
+});
+
+/* ===================== boot ===================== */
+$$("[data-lang]").forEach(b => b.addEventListener("click", () => {
+  lang = b.dataset.lang;
+  localStorage.setItem("lang", lang);
+  applyI18n();
+  if (state) renderState();
+  if (config) { fillMqttForm(); renderLayouts(); renderMetrics(); renderZones(); }
+  renderUpdate(); renderLog();
+}));
+$$("[data-theme-btn]").forEach(b => b.addEventListener("click", () => {
+  theme = b.dataset.themeBtn;
+  localStorage.setItem("theme", theme);
+  applyTheme();
+}));
+
+async function init() {
+  applyI18n();
+  await refreshState();
+  try {
+    config = await api("/api/config");
+    draft = structuredClone(config);
+    fillDisplayForm(); fillMqttForm(); fillDeviceForm();
+    if (state) renderState();
+  } catch (e) { /* offline */ }
+
+  const tab = location.hash.slice(1);
+  const setup = state && state.wifi.ap_active && !state.wifi.connected;
+  selectTab(TABS.includes(tab) ? tab : setup ? "network" : "overview");
+
+  refreshScreen();
+  setInterval(refreshState, 5000);
+  setInterval(refreshScreen, 15000);
+  setInterval(() => { if ($("#tab-system").classList.contains("active")) refreshUpdate(); }, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { refreshState(); refreshScreen(); pollLogs(); } });
+}
+init();
+</script>
+</body>
+</html>
