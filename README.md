@@ -108,12 +108,14 @@ Turn on MQTT on the **Network** tab and point it at the broker Home Assistant us
 | --- | --- |
 | Temperature, humidity, pressure, CO₂, Wi-Fi signal, uptime | `sensor` |
 | CO₂ above threshold | `binary_sensor` |
-| Message on the screen | `text` |
+| Permanent notification, temporary notification | `text` |
 | Clear message, restart, calibrate CO₂ | `button` |
 | Screen layout | `select` |
-| CO₂ threshold | `number` |
+| CO₂ threshold, temporary notification time (minutes) | `number` |
 
-Readings are published every 30 seconds, and the state right after a setting or a message changes. Messages with an expiry or on the full screen go to `eink-clock/<id>/notify`:
+There are two kinds of messages. A permanent one stays on the screen until it is removed with the button, from the web interface or through the API. A temporary one disappears by itself: Home Assistant shows it for the time set in its `number` entity, and the web interface asks for the time next to the text.
+
+Readings are published every 30 seconds, and the state right after a setting or a message changes. Automations can set the time per message, or show it on the full screen, through `eink-clock/<id>/notify` (`ttl` 0 means permanent):
 
 ```yaml
 action: mqtt.publish
@@ -127,7 +129,9 @@ data:
 | `state` | out | JSON with all readings, retained |
 | `status` | out | `online` / `offline` (last will) |
 | `notify` | in | `{"text", "ttl", "fullscreen"}` or plain text |
-| `notification/set` | in | plain text |
+| `notification/set` | in | plain text, permanent |
+| `notification_temp/set` | in | plain text, temporary |
+| `notification_time/set` | in | minutes for temporary text, 1…10080 |
 | `command` | in | `clear_notification`, `reboot`, `calibrate_co2` |
 | `layout/set` | in | `classic`, `clock`, `co2`, `sensors` |
 | `co2_threshold/set` | in | 400…5000 |
