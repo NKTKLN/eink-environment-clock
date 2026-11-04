@@ -108,6 +108,11 @@ static void test_invalid_values_are_clamped(void)
     TEST_ASSERT_EQUAL(CONNECT_NOTICE_MAX, s.display.connect_notice_s);
     apply(&s, "{\"display\":{\"connect_notice_s\":0}}");
     TEST_ASSERT_EQUAL(0, s.display.connect_notice_s);
+    TEST_ASSERT_EQUAL(10, s.display.temp_notice_min); /* default */
+    apply(&s, "{\"display\":{\"temp_notice_min\":0}}");
+    TEST_ASSERT_EQUAL(TEMP_NOTICE_MIN_MIN, s.display.temp_notice_min);
+    apply(&s, "{\"display\":{\"temp_notice_min\":999999}}");
+    TEST_ASSERT_EQUAL(TEMP_NOTICE_MAX_MIN, s.display.temp_notice_min);
 }
 
 static void test_metric_order_repaired(void)

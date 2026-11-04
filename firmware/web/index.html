@@ -222,6 +222,18 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .layouts svg { width: 100%; height: auto; }
 .layouts span { font-size: 13px; line-height: 1.3; }
 
+/* segmented choice */
+.seg { margin: 0 0 6px; padding: 0; border: 0; min-width: 0; }
+.seg legend { padding: 0; margin-bottom: 6px; font-size: 13px; }
+.seg-opts { display: inline-flex; }
+.seg label { position: relative; padding: 9px 16px; border: 1px solid var(--line); background: var(--paper); cursor: pointer; font-size: 14px; }
+.seg label + label { border-left: 0; }
+.seg label:hover { border-color: var(--muted); }
+.seg input { position: absolute; opacity: 0; }
+.seg label:has(input:checked) { background: var(--moss); border-color: var(--moss); color: var(--moss-ink); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--moss); outline-offset: 2px; }
+.hint { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+
 /* metric list */
 .metrics { list-style: none; margin: 0 0 18px; padding: 0; border: 1px solid var(--line); }
 .metrics li { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--line); background: var(--paper); }
@@ -371,16 +383,21 @@ footer { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
           <form id="notify-form">
             <label class="field"><span data-i18n="notify_text">Text</span>
               <input type="text" id="notify-text" name="text" maxlength="255" autocomplete="off" data-i18n-placeholder="notify_placeholder"></label>
-            <div class="row">
-              <label class="field"><span data-i18n="notify_ttl">Show for</span>
-                <select id="notify-ttl" name="ttl">
-                  <option value="0" data-i18n="ttl_forever">Until cleared</option>
-                  <option value="60" data-i18n="ttl_1m">1 minute</option>
-                  <option value="300" data-i18n="ttl_5m">5 minutes</option>
-                  <option value="900" data-i18n="ttl_15m">15 minutes</option>
-                  <option value="3600" data-i18n="ttl_1h">1 hour</option>
-                  <option value="28800" data-i18n="ttl_8h">8 hours</option>
-                  <option value="86400" data-i18n="ttl_24h">24 hours</option>
+            <fieldset class="seg" aria-labelledby="notify-kind-label">
+              <legend class="group-label muted" id="notify-kind-label" data-i18n="notify_kind">Type</legend>
+              <div class="seg-opts">
+                <label><input type="radio" name="kind" value="permanent" checked><span data-i18n="kind_permanent">Permanent</span></label>
+                <label><input type="radio" name="kind" value="temporary"><span data-i18n="kind_temporary">Temporary</span></label>
+              </div>
+            </fieldset>
+            <p class="hint" id="notify-kind-hint" data-i18n="kind_permanent_hint">Stays on the screen until you remove it.</p>
+            <div class="row" id="notify-time" hidden>
+              <label class="field narrow"><span data-i18n="notify_for">Show for</span>
+                <input type="number" id="notify-amount" name="amount" min="1" max="10080" step="1" value="10" inputmode="numeric" required></label>
+              <label class="field narrow"><span data-i18n="notify_unit">Unit</span>
+                <select id="notify-unit" name="unit">
+                  <option value="60" data-i18n="unit_min" selected>minutes</option>
+                  <option value="3600" data-i18n="unit_h">hours</option>
                 </select></label>
             </div>
             <label class="check"><input type="checkbox" id="notify-full" name="fullscreen"><span data-i18n="notify_full">Full screen</span></label>
@@ -708,7 +725,7 @@ const I18N = {
     temperature: "Temperature", humidity: "Humidity", pressure: "Pressure", co2: "CO₂",
     screen_alt: "What the clock screen shows now", preview_alt: "Preview of the screen with unsaved settings",
     screen_note: "The panel right now, refreshed every 15 seconds",
-    notify_title: "Message on the screen", notify_text: "Text",
+    notify_title: "Message on the screen", notify_text: "Text", notify_kind: "Type", kind_permanent: "Permanent", kind_temporary: "Temporary", kind_permanent_hint: "Stays on the screen until you remove it.", kind_temporary_hint: "Disappears by itself after the time you set.", notify_for: "Show for", notify_unit: "Unit", unit_min: "minutes", unit_h: "hours", notify_bad_time: "Set a time from 1 minute to 7 days.", left_m: "{n} min left", left_h: "{h} h {m} min left", k_permanent: "until removed",
     notify_placeholder: "Meeting until 15:00…", notify_ttl: "Show for", ttl_forever: "Until removed",
     ttl_1m: "1 minute", ttl_10m: "10 minutes", cn_2m: "2 minutes", cn_30s: "30 seconds", cn_off: "Don't show", connect_notice: "Address after connecting to Wi-Fi", ttl_5m: "5 minutes", ttl_15m: "15 minutes", ttl_1h: "1 hour", ttl_8h: "8 hours", ttl_24h: "24 hours",
     notify_full: "Full screen", notify_send: "Show on the screen", notify_clear: "Remove",
@@ -780,7 +797,7 @@ const I18N = {
     temperature: "Температура", humidity: "Влажность", pressure: "Давление", co2: "CO₂",
     screen_alt: "Что сейчас показывает экран часов", preview_alt: "Превью экрана с несохранёнными настройками",
     screen_note: "Панель сейчас, обновляется каждые 15 секунд",
-    notify_title: "Сообщение на экране", notify_text: "Текст",
+    notify_title: "Сообщение на экране", notify_text: "Текст", notify_kind: "Тип", kind_permanent: "Постоянное", kind_temporary: "Временное", kind_permanent_hint: "Висит на экране, пока его не уберут.", kind_temporary_hint: "Исчезнет само через заданное время.", notify_for: "Показывать", notify_unit: "Единицы", unit_min: "минут", unit_h: "часов", notify_bad_time: "Укажите время от 1 минуты до 7 дней.", left_m: "осталось {n} мин", left_h: "осталось {h} ч {m} мин", k_permanent: "пока не уберут",
     notify_placeholder: "Совещание до 15:00…", notify_ttl: "Показывать", ttl_forever: "Пока не уберут",
     ttl_1m: "1 минуту", ttl_10m: "10 минут", cn_2m: "2 минуты", cn_30s: "30 секунд", cn_off: "Не показывать", connect_notice: "Адрес после подключения к Wi-Fi", ttl_5m: "5 минут", ttl_15m: "15 минут", ttl_1h: "1 час", ttl_8h: "8 часов", ttl_24h: "24 часа",
     notify_full: "На весь экран", notify_send: "Показать на экране", notify_clear: "Убрать",
@@ -1019,6 +1036,12 @@ function bars(rssi) {
   return `<span class="bars" aria-hidden="true">${[1, 2, 3, 4].map(i => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</span>`;
 }
 
+function noticeLeft(sec) {
+  if (sec == null) return t("k_permanent");
+  const m = Math.max(1, Math.ceil(sec / 60));
+  return m < 60 ? t("left_m").replace("{n}", m) : t("left_h").replace("{h}", Math.floor(m / 60)).replace("{m}", m % 60);
+}
+
 function renderState() {
   const s = state, w = s.wifi, m = s.mqtt;
   $("#dev-name").textContent = s.device.name;
@@ -1029,7 +1052,7 @@ function renderState() {
     [t("k_time"), s.time.valid ? esc(clockTime(s.time.local)) + ` <span class="muted">${esc(s.time.timezone)}</span>` : t("time_unset")],
     [t("k_wifi"), w.connected ? dot(true, `${w.ssid} · ${w.ip}`) : dot(false, w.ap_active ? `${t("k_ap")}: ${w.ap_ssid}` : t("disconnected"))],
     [t("k_mqtt"), m.enabled ? dot(m.connected, m.connected ? t("connected") : t("disconnected")) : `<span class="dot" aria-hidden="true"></span>${t("off")}`],
-    [t("k_notice"), s.notification ? esc(s.notification.text) : "—"],
+    [t("k_notice"), s.notification ? `${esc(s.notification.text)} <span class="muted">· ${noticeLeft(s.notification.remaining_s)}</span>` : "—"],
     [t("k_uptime"), uptime(s.device.uptime_s)],
   ]);
 
@@ -1051,7 +1074,9 @@ function renderState() {
 `${b}/state                 ← JSON
 ${b}/status                ← online / offline
 ${b}/notify                → {"text":"…","ttl":600,"fullscreen":false}
-${b}/notification/set      → plain text
+${b}/notification/set      → plain text, permanent
+${b}/notification_temp/set → plain text, temporary
+${b}/notification_time/set → minutes for temporary text
 ${b}/command               → clear_notification | reboot | calibrate_co2
 ${b}/layout/set            → classic | clock | co2 | sensors
 ${b}/co2_threshold/set     → 400…5000`;
@@ -1244,12 +1269,26 @@ $("#display-reset").addEventListener("click", () => {
 addEventListener("beforeunload", e => { if (isDirty()) { e.preventDefault(); e.returnValue = t("leave_unsaved"); } });
 
 /* ===================== notifications ===================== */
+const notifyKind = () => $("#notify-form").elements.kind.value;
+function syncNotifyKind() {
+  const temp = notifyKind() === "temporary";
+  $("#notify-time").hidden = !temp;
+  const hint = $("#notify-kind-hint");
+  hint.dataset.i18n = temp ? "kind_temporary_hint" : "kind_permanent_hint";
+  hint.textContent = t(hint.dataset.i18n);
+}
+$$("#notify-form input[name=kind]").forEach(r => r.addEventListener("change", syncNotifyKind));
 $("#notify-form").addEventListener("submit", e => {
   e.preventDefault();
   const text = $("#notify-text").value.trim();
   if (!text) { setStatus("notify-status", t("notify_empty"), true); $("#notify-text").focus(); return; }
+  let ttl = 0;
+  if (notifyKind() === "temporary") {
+    ttl = Math.round(+$("#notify-amount").value * +$("#notify-unit").value);
+    if (!(ttl >= 60 && ttl <= 7 * 86400)) { setStatus("notify-status", t("notify_bad_time"), true); $("#notify-amount").focus(); return; }
+  }
   run("notify-status", async () => {
-    await api("/api/notify", { method: "POST", json: { text, ttl: +$("#notify-ttl").value, fullscreen: $("#notify-full").checked } });
+    await api("/api/notify", { method: "POST", json: { text, ttl, fullscreen: $("#notify-full").checked } });
     setStatus("notify-status", t("notify_sent"));
     refreshState();
     setTimeout(refreshScreen, 4000);

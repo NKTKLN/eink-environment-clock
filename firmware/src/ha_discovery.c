@@ -76,6 +76,19 @@ static void button(cJSON *cmps, const ha_device_t *dev, const char *cmd_topic,
     }
 }
 
+static void text_entity(cJSON *cmps, const ha_device_t *dev,
+                        const char *state_topic, const char *key,
+                        const char *name, const char *suffix, const char *icon)
+{
+    char buf[128];
+    cJSON *c = state_component(cmps, dev, key, "text", name, state_topic);
+    topic(buf, sizeof(buf), dev, suffix);
+    cJSON_AddStringToObject(c, "command_topic", buf);
+    cJSON_AddNumberToObject(c, "min", 0);
+    cJSON_AddNumberToObject(c, "max", 255);
+    cJSON_AddStringToObject(c, "icon", icon);
+}
+
 char *ha_discovery_payload(const ha_device_t *dev)
 {
     char st[128], status[128], cmd[128], buf[128];
@@ -127,13 +140,21 @@ char *ha_discovery_payload(const ha_device_t *dev)
     cJSON_AddStringToObject(hi, "payload_on", "ON");
     cJSON_AddStringToObject(hi, "payload_off", "OFF");
 
-    cJSON *txt = state_component(cmps, dev, "notification", "text",
-                                 "Notification", st);
-    topic(buf, sizeof(buf), dev, HA_TOPIC_NOTIFICATION);
-    cJSON_AddStringToObject(txt, "command_topic", buf);
-    cJSON_AddNumberToObject(txt, "min", 0);
-    cJSON_AddNumberToObject(txt, "max", 255);
-    cJSON_AddStringToObject(txt, "icon", "mdi:message-text");
+    text_entity(cmps, dev, st, "notification", "Permanent notification",
+                HA_TOPIC_NOTIFICATION, "mdi:message-text");
+    text_entity(cmps, dev, st, "notification_temp", "Temporary notification",
+                HA_TOPIC_NOTIFICATION_TEMP, "mdi:message-text-clock");
+
+    cJSON *nt = state_component(cmps, dev, "notification_time", "number",
+                                "Temporary notification time", st);
+    topic(buf, sizeof(buf), dev, HA_TOPIC_NOTIFICATION_TIME);
+    cJSON_AddStringToObject(nt, "command_topic", buf);
+    cJSON_AddNumberToObject(nt, "min", TEMP_NOTICE_MIN_MIN);
+    cJSON_AddNumberToObject(nt, "max", TEMP_NOTICE_MAX_MIN);
+    cJSON_AddNumberToObject(nt, "step", 1);
+    cJSON_AddStringToObject(nt, "unit_of_measurement", "min");
+    cJSON_AddStringToObject(nt, "mode", "box");
+    cJSON_AddStringToObject(nt, "icon", "mdi:timer-outline");
 
     button(cmps, dev, cmd, "clear_notification", "Clear notification",
            HA_CMD_CLEAR_NOTIFICATION, NULL, NULL);
@@ -206,6 +227,11 @@ char *ha_state_payload(const ha_state_t *st)
     cJSON_AddNumberToObject(root, "co2_threshold", st->co2_threshold_ppm);
     cJSON_AddStringToObject(root, "notification",
                             st->notification != NULL ? st->notification : "");
+    cJSON_AddStringToObject(root, "notification_temp",
+                            st->notification_temp != NULL
+                                ? st->notification_temp
+                                : "");
+    cJSON_AddNumberToObject(root, "notification_time", st->temp_notice_min);
 
     char *out = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);

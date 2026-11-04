@@ -66,6 +66,8 @@ typedef struct {
         /* How long "Connected: <ip>" stays after joining Wi-Fi:
          * 0 = not shown, -1 = until removed, otherwise seconds. */
         int connect_notice_s;
+        /* Duration of a temporary notification from Home Assistant. */
+        int temp_notice_min;
         temp_unit_t temp_unit;
         pressure_unit_t pressure_unit;
     } display;
@@ -97,6 +99,8 @@ typedef struct {
 #define CO2_THRESHOLD_MAX 5000
 #define TEMP_OFFSET_LIMIT 10.0f
 #define CONNECT_NOTICE_MAX (24 * 3600)
+#define TEMP_NOTICE_MIN_MIN 1
+#define TEMP_NOTICE_MAX_MIN (7 * 24 * 60) /* NOTIFY_TTL_MAX */
 
 void settings_defaults(settings_t *s);
 

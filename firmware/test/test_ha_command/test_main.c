@@ -40,6 +40,26 @@ static void test_text_entity_is_plain(void)
     TEST_ASSERT_EQUAL_STRING("", c.text);
 }
 
+static void test_temporary_text_entity(void)
+{
+    parse("eink-clock/a1b2c3/notification_temp/set", "Проветрите");
+    TEST_ASSERT_EQUAL(HA_ACT_NOTIFY_TEMP, c.action);
+    TEST_ASSERT_EQUAL_STRING("Проветрите", c.text);
+}
+
+static void test_temporary_time(void)
+{
+    parse("eink-clock/a1b2c3/notification_time/set", "30.0");
+    TEST_ASSERT_EQUAL(HA_ACT_TEMP_TIME, c.action);
+    TEST_ASSERT_EQUAL(30, c.minutes);
+    parse("eink-clock/a1b2c3/notification_time/set", "0");
+    TEST_ASSERT_EQUAL(HA_ACT_INVALID, c.action);
+    parse("eink-clock/a1b2c3/notification_time/set", "99999");
+    TEST_ASSERT_EQUAL(HA_ACT_INVALID, c.action);
+    parse("eink-clock/a1b2c3/notification_time/set", "x");
+    TEST_ASSERT_EQUAL(HA_ACT_INVALID, c.action);
+}
+
 static void test_long_text_cut_on_utf8_boundary(void)
 {
     char payload[600] = "";
@@ -103,6 +123,8 @@ int main(void)
     UNITY_BEGIN();
     RUN_TEST(test_notify_json);
     RUN_TEST(test_text_entity_is_plain);
+    RUN_TEST(test_temporary_text_entity);
+    RUN_TEST(test_temporary_time);
     RUN_TEST(test_long_text_cut_on_utf8_boundary);
     RUN_TEST(test_commands);
     RUN_TEST(test_layout_and_threshold);
