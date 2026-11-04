@@ -44,16 +44,17 @@ jobs:
       - name: Build firmware
         run: pio run -e esp32-c3-supermini
 
+      # Copied right away: later pio runs may clean .pio/build, and both
+      # upload actions skip hidden directories such as .pio.
+      - name: Collect firmware
+        run: mkdir -p dist && cp .pio/build/esp32-c3-supermini/firmware.bin dist/
+
       - name: Host unit tests
         run: pio test -e native
 
       # The same tests plus the fuzzers under AddressSanitizer and UBSan.
       - name: Host tests with sanitizers
         run: pio test -e native-asan
-
-      # Both upload actions skip hidden directories such as .pio.
-      - name: Collect firmware
-        run: mkdir -p dist && cp .pio/build/esp32-c3-supermini/firmware.bin dist/
 
       - uses: actions/upload-artifact@v4
         with:
