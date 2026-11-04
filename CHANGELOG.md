@@ -1,3 +1,13 @@
+## 0.2.0 (2026-11-04)
+
+### Feat
+
+- **notify**: separate permanent and temporary notifications
+
+### Perf
+
+- **wifi**: disable modem sleep to stop stalled page loads
+
 ## 0.1.0 (2026-11-04)
 
 ### Feat
