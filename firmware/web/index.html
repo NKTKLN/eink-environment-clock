@@ -291,6 +291,35 @@ textarea { width: 100%; min-height: 90px; padding: 10px 12px; border: 1px solid 
 .json { max-height: 420px; }
 .http-status { font: 13px var(--mono); }
 
+/* charts */
+.hist-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: clamp(14px, 2vw, 20px); }
+.hist-bar .seg { margin: 0; }
+.hist-bar .hint { margin: 0 auto 0 0; }
+.chart-card h2 { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.chart-card h2 .label { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 400; }
+.chart-now { font: clamp(22px, 1.6vw + 14px, 28px)/1.2 var(--mono); font-variant-numeric: tabular-nums; }
+.chart-now small { margin-left: 4px; font-size: 13px; color: var(--muted); }
+.chart-stats { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 2px 0 10px; font: 12px var(--mono); color: var(--muted); }
+.chart-stats b { font-weight: 400; color: var(--ink); }
+.chart { position: relative; height: 200px; touch-action: pan-y; }
+.chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.chart .grid-line { stroke: var(--line); stroke-width: 1; }
+.chart .axis-text { fill: var(--muted); font: 11px var(--mono); font-variant-numeric: tabular-nums; }
+.chart .series { fill: none; stroke: var(--moss); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .area { fill: var(--moss); opacity: .1; }
+.chart .limit { stroke: var(--alarm); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.chart .limit-zone { fill: var(--alarm); opacity: .07; }
+.chart .limit-text { fill: var(--alarm); font: 11px var(--mono); stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; paint-order: stroke; }
+.chart .cross { stroke: var(--muted); stroke-width: 1; }
+.chart .cross-dot { fill: var(--moss); stroke: var(--surface); stroke-width: 2; }
+.chart-tip { position: absolute; top: 0; z-index: 2; padding: 6px 9px; pointer-events: none; white-space: nowrap;
+  background: var(--btn-bg); color: var(--btn-fg); font: 12px/1.4 var(--mono); font-variant-numeric: tabular-nums; }
+.chart-tip span { opacity: .7; }
+.chart-empty { display: grid; place-items: center; height: 100%; border: 1px dashed var(--line); padding: 16px; text-align: center; font-size: 13px; color: var(--muted); }
+.spark { display: block; width: 100%; height: 26px; margin-top: 6px; overflow: visible; }
+.spark path { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; opacity: .55; }
+.reading.alarm .spark path { opacity: .8; }
+
 /* confirmation dialog */
 dialog { max-width: min(440px, calc(100vw - 32px)); padding: 22px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
 dialog::backdrop { background: rgb(10 12 13 / .55); }
@@ -356,6 +385,7 @@ footer { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
   <div class="wrap">
     <nav role="tablist" data-i18n-aria="sections">
       <button role="tab" id="tab-btn-overview" aria-controls="tab-overview" data-tab="overview" data-i18n="tab_overview">Overview</button>
+      <button role="tab" id="tab-btn-history" aria-controls="tab-history" data-tab="history" data-i18n="tab_history">Charts</button>
       <button role="tab" id="tab-btn-display" aria-controls="tab-display" data-tab="display" data-i18n="tab_display">Display</button>
       <button role="tab" id="tab-btn-network" aria-controls="tab-network" data-tab="network" data-i18n="tab_network">Network</button>
       <button role="tab" id="tab-btn-system" aria-controls="tab-system" data-tab="system" data-i18n="tab_system">System</button>
@@ -415,6 +445,23 @@ footer { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
         </section>
       </div>
     </div>
+  </section>
+
+  <!-- ============ History ============ -->
+  <section role="tabpanel" id="tab-history" aria-labelledby="tab-btn-history">
+    <div class="hist-bar">
+      <fieldset class="seg" aria-labelledby="hist-range-label">
+        <legend class="sr-only" id="hist-range-label" data-i18n="hist_range">Period</legend>
+        <div class="seg-opts" id="hist-range">
+          <label><input type="radio" name="hist-range" value="3600"><span data-i18n="hist_1h">1 h</span></label>
+          <label><input type="radio" name="hist-range" value="21600" checked><span data-i18n="hist_6h">6 h</span></label>
+          <label><input type="radio" name="hist-range" value="86400"><span data-i18n="hist_24h">24 h</span></label>
+        </div>
+      </fieldset>
+      <p class="hint" id="hist-info"></p>
+      <button class="btn ghost" type="button" id="hist-csv" data-i18n="hist_csv">Download CSV</button>
+    </div>
+    <div class="grid cols" id="charts"></div>
   </section>
 
   <!-- ============ Display ============ -->
@@ -626,6 +673,7 @@ footer { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
           <h2 id="h-api" data-i18n="api_title">Local HTTP API</h2>
           <p class="hint" data-i18n="api_hint">No keys or accounts. JSON in and out, except the screen images.</p>
           <pre translate="no">GET    /api/state
+GET    /api/history
 GET    /api/config      POST /api/config
 GET    /api/screen.bmp  POST /api/preview
 POST   /api/notify      DELETE /api/notify
@@ -789,6 +837,11 @@ const I18N = {
     console_title: "API console", console_method: "Method", console_path: "Path", console_body: "JSON body", console_send: "Send request",
     raw_title: "Raw state", raw_hint: "GET /api/state, refreshed every 5 seconds.",
     footer: "{0} · firmware {1} · {2}", units: ["d", "h", "min"],
+    tab_history: "Charts", hist_range: "Period", hist_1h: "1 h", hist_6h: "6 h", hist_24h: "24 h", hist_csv: "Download CSV",
+    hist_info: "One point every {0} min, averaged. Kept in memory for 24 hours; a restart starts over.",
+    hist_empty: "Collecting data. The first point appears {0} minutes after the clock starts.",
+    hist_none: "No readings from this sensor in the chosen period.",
+    hist_min: "min", hist_avg: "avg", hist_max: "max", hist_limit: "alert {0}", chart_aria: "{0} over the last {1}",
   },
   ru: {
     skip: "К содержимому", language: "Язык", theme: "Тема", sections: "Разделы", networks: "Найденные сети",
@@ -861,6 +914,11 @@ const I18N = {
     console_title: "Консоль API", console_method: "Метод", console_path: "Путь", console_body: "Тело JSON", console_send: "Отправить запрос",
     raw_title: "Сырое состояние", raw_hint: "GET /api/state, обновляется каждые 5 секунд.",
     footer: "{0} · прошивка {1} · {2}", units: ["д", "ч", "мин"],
+    tab_history: "Графики", hist_range: "Период", hist_1h: "1 ч", hist_6h: "6 ч", hist_24h: "24 ч", hist_csv: "Скачать CSV",
+    hist_info: "Точка раз в {0} мин, усреднённая. Хранится в памяти 24 часа; после перезапуска история начинается заново.",
+    hist_empty: "Данные копятся. Первая точка появится через {0} минуты после запуска часов.",
+    hist_none: "За выбранный период от этого датчика нет показаний.",
+    hist_min: "мин", hist_avg: "сред", hist_max: "макс", hist_limit: "порог {0}", chart_aria: "{0} за {1}",
   },
 };
 
@@ -949,7 +1007,7 @@ function showBlob(img, blob) {
 
 
 /* ===================== tabs ===================== */
-const TABS = ["overview", "display", "network", "system", "dev"];
+const TABS = ["overview", "history", "display", "network", "system", "dev"];
 function selectTab(name, focus = false) {
   $$("[role=tab]").forEach(b => {
     const on = b.dataset.tab === name;
@@ -962,6 +1020,7 @@ function selectTab(name, focus = false) {
   if (name === "display") schedulePreview();
   if (name === "dev") { pollLogs(); renderRaw(); }
   if (name === "system") refreshUpdate();
+  if (name === "history") { renderCharts(); refreshHistory(); }
 }
 $$("[role=tab]").forEach(b => {
   b.addEventListener("click", () => selectTab(b.dataset.tab));
@@ -1023,6 +1082,7 @@ function renderReadings() {
     <div class="reading${alarm ? " alarm" : ""}">
       <div class="label">${icon(k)}${t(k)}</div>
       <div class="value">${v}<small>${u}</small></div>
+      ${sparkline(k)}
     </div>`).join("");
 }
 
@@ -1543,6 +1603,231 @@ function saveUpdatePrefs(e) {
 $("#upd-auto-check").addEventListener("change", saveUpdatePrefs);
 $("#upd-auto-install").addEventListener("change", saveUpdatePrefs);
 
+/* ===================== charts ===================== */
+/* /api/history: one averaged point per interval_s, oldest first, the newest
+ * one age_s seconds old. Times are the clock's local time, encoded as UTC
+ * (like clockTime), so the axis matches the panel. */
+let hist = null, histTimer = null, hoverT = null;
+const SERIES = [
+  { id: "temperature", key: "temperature_c" },
+  { id: "humidity", key: "humidity_pct" },
+  { id: "pressure", key: "pressure_hpa" },
+  { id: "co2", key: "co2_ppm" },
+];
+const histRange = () => +$("#hist-range input:checked").value;
+
+/* [convert, unit, decimals] honoring the display units */
+function seriesUnit(id) {
+  const d = config ? config.display : { temp_unit: "c", pressure_unit: "hpa" };
+  if (id === "temperature") return d.temp_unit === "f" ? [v => v * 9 / 5 + 32, "°F", 1] : [v => v, "°C", 1];
+  if (id === "pressure") return d.pressure_unit === "mmhg" ? [v => v * 0.750062, t("u_mmhg"), 0] : [v => v, t("u_hpa"), 0];
+  if (id === "humidity") return [v => v, "%", 0];
+  return [v => v, "ppm", 0];
+}
+
+function clockNowMs() {
+  if (state && state.time.valid) {
+    const [d, tm] = state.time.local.split("T");
+    const [y, mo, da] = d.split("-").map(Number);
+    const [h, mi, se] = tm.split(":").map(Number);
+    return Date.UTC(y, mo - 1, da, h, mi, se);
+  }
+  return Date.now() - new Date().getTimezoneOffset() * 60000;
+}
+
+function histTimes() {
+  const n = hist.co2_ppm.length, step = hist.interval_s * 1000;
+  const end = clockNowMs() - Math.max(0, hist.age_s) * 1000;
+  return Array.from({ length: n }, (_, i) => end - (n - 1 - i) * step);
+}
+
+async function refreshHistory() {
+  clearTimeout(histTimer);
+  try {
+    hist = await api("/api/history");
+    renderReadings();
+    if ($("#tab-history").classList.contains("active")) renderCharts();
+  } catch (e) { /* offline: keep the last data */ }
+  histTimer = setTimeout(refreshHistory, 60000);
+}
+
+const fmtHM = ms => new Intl.DateTimeFormat(lang, { hour: "2-digit", minute: "2-digit", timeZone: "UTC",
+  hour12: config ? !config.display.hour24 : undefined }).format(ms);
+const fmtSpan = s => s >= 86400 ? t("hist_24h") : s >= 21600 ? t("hist_6h") : t("hist_1h");
+
+function niceTicks(lo, hi, count) {
+  if (!(hi > lo)) { lo -= 1; hi += 1; }
+  const raw = (hi - lo) / count, mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw);
+  const ticks = [];
+  for (let v = Math.floor(lo / step) * step; v <= Math.ceil(hi / step) * step + step / 2; v += step) ticks.push(+v.toFixed(6));
+  return ticks;
+}
+
+function sparkline(id) {
+  if (!hist) return "";
+  const s = SERIES.find(x => x.id === id), arr = hist[s.key];
+  const from = Math.max(0, arr.length - 180); /* last 6 h */
+  const pts = [];
+  for (let i = from; i < arr.length; i++) if (arr[i] !== null) pts.push([i, arr[i]]);
+  if (pts.length < 2) return "";
+  const lo = Math.min(...pts.map(p => p[1])), hi = Math.max(...pts.map(p => p[1]));
+  const W = 100, H = 26, span = Math.max(arr.length - 1 - from, 1);
+  let d = "", prev = -2;
+  for (const [i, v] of pts) {
+    const x = (i - from) / span * W, y = hi > lo ? 2 + (1 - (v - lo) / (hi - lo)) * (H - 4) : H / 2;
+    d += `${i === prev + 1 ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`;
+    prev = i;
+  }
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+const charts = {};
+function renderCharts() {
+  const box = $("#charts");
+  $("#hist-info").textContent = t("hist_info", (hist ? hist.interval_s : 120) / 60);
+  if (!box.children.length) {
+    box.innerHTML = SERIES.map(s => `
+      <section class="card chart-card" aria-labelledby="h-chart-${s.id}">
+        <h2 id="h-chart-${s.id}"><span class="label">${icon(s.id)}<span data-i18n="${s.id}">${t(s.id)}</span></span><span class="chart-now" id="now-${s.id}"></span></h2>
+        <div class="chart-stats" id="stats-${s.id}"></div>
+        <div class="chart" id="chart-${s.id}"></div>
+      </section>`).join("");
+    new ResizeObserver(() => renderCharts()).observe(box);
+  }
+  for (const s of SERIES) drawChart(s);
+}
+
+function drawChart(s) {
+  const el = $("#chart-" + s.id);
+  const W = el.clientWidth, H = el.clientHeight;
+  if (!W) return;
+  const [conv, unit, dec] = seriesUnit(s.id);
+  if (!hist || hist[s.key].length < 2) {
+    el.innerHTML = `<div class="chart-empty">${esc(t("hist_empty", (hist ? hist.interval_s : 120) / 60))}</div>`;
+    $("#now-" + s.id).innerHTML = ""; $("#stats-" + s.id).innerHTML = "";
+    charts[s.id] = null;
+    return;
+  }
+  const times = histTimes(), raw = hist[s.key];
+  const tEnd = times[times.length - 1], tStart = tEnd - histRange() * 1000;
+  const pts = [];
+  raw.forEach((v, i) => { if (times[i] >= tStart) pts.push([times[i], v === null ? null : conv(v)]); });
+  const vals = pts.map(p => p[1]).filter(v => v !== null);
+  const last = vals.length ? vals[vals.length - 1] : null;
+  $("#now-" + s.id).innerHTML = last === null ? "" : `${num(last, dec)}<small>${esc(unit)}</small>`;
+  if (!vals.length) {
+    el.innerHTML = `<div class="chart-empty">${esc(t("hist_none"))}</div>`;
+    $("#stats-" + s.id).innerHTML = "";
+    charts[s.id] = null;
+    return;
+  }
+  const lo = Math.min(...vals), hi = Math.max(...vals), avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+  $("#stats-" + s.id).innerHTML = [["hist_min", lo], ["hist_avg", avg], ["hist_max", hi]]
+    .map(([k, v]) => `<span>${t(k)} <b>${num(v, dec)}</b></span>`).join("");
+
+  /* CO2 alert level, drawn when the readings come near it */
+  const limit = s.id === "co2" && config ? config.sensors.co2_threshold_ppm : null;
+  const showLimit = limit !== null && hi >= limit * 0.8;
+  const minSpan = { temperature: 2, humidity: 10, pressure: 4, co2: 200 }[s.id];
+  let yLo = lo, yHi = showLimit ? Math.max(hi, limit) : hi;
+  if (yHi - yLo < minSpan) { const m = (yHi + yLo) / 2; yLo = m - minSpan / 2; yHi = m + minSpan / 2; }
+  const ticks = niceTicks(yLo, yHi, H < 180 ? 3 : 4);
+  const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+
+  const tickDec = ticks.some(x => x % 1) ? 1 : 0;
+  const M = { l: Math.max(...ticks.map(v => num(v, tickDec).length)) * 7 + 12, r: 8, t: 8, b: 22 };
+  const pw = W - M.l - M.r, ph = H - M.t - M.b;
+  const sx = tm => M.l + (tm - tStart) / (tEnd - tStart) * pw;
+  const sy = v => M.t + (1 - (v - y0) / (y1 - y0)) * ph;
+
+  let svg = "";
+  for (const v of ticks) {
+    const y = sy(v).toFixed(1);
+    svg += `<line class="grid-line" x1="${M.l}" x2="${W - M.r}" y1="${y}" y2="${y}"/>`;
+    svg += `<text class="axis-text" x="${M.l - 8}" y="${y}" dy="4" text-anchor="end">${num(v, tickDec)}</text>`;
+  }
+  /* time labels on round hours/minutes, about one per 90 px */
+  const STEPS = [5, 10, 15, 30, 60, 120, 180, 240, 360, 720].map(m => m * 60000);
+  const tStep = STEPS.find(st => (tEnd - tStart) / st <= pw / 90) || STEPS[STEPS.length - 1];
+  for (let tm = Math.ceil(tStart / tStep) * tStep; tm <= tEnd; tm += tStep) {
+    const x = sx(tm);
+    if (x < M.l + 16 || x > W - M.r - 16) continue;
+    svg += `<line class="grid-line" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${M.t + ph}" y2="${M.t + ph + 4}"/>`;
+    svg += `<text class="axis-text" x="${x.toFixed(1)}" y="${H - 4}" text-anchor="middle">${fmtHM(tm)}</text>`;
+  }
+  if (showLimit) {
+    const y = sy(limit).toFixed(1);
+    svg += `<rect class="limit-zone" x="${M.l}" y="${M.t}" width="${pw}" height="${Math.max(0, y - M.t)}"/>`;
+    svg += `<line class="limit" x1="${M.l}" x2="${W - M.r}" y1="${y}" y2="${y}"/>`;
+    svg += `<text class="limit-text" x="${M.l + 6}" y="${y}" dy="-6">${esc(t("hist_limit", limit + " ppm"))}</text>`;
+  }
+  /* the line breaks at gaps */
+  let line = "", area = "", seg = [];
+  const flush = () => {
+    if (!seg.length) return;
+    const d = seg.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join("");
+    line += d;
+    area += `${d}L${seg[seg.length - 1][0].toFixed(1)} ${M.t + ph}L${seg[0][0].toFixed(1)} ${M.t + ph}Z`;
+    seg = [];
+  };
+  for (const [tm, v] of pts) { if (v === null) flush(); else seg.push([sx(tm), sy(v)]); }
+  flush();
+  svg += `<path class="area" d="${area}"/><path class="series" d="${line}"/>`;
+  svg += `<g class="hover" hidden><line class="cross" y1="${M.t}" y2="${M.t + ph}"/><circle class="cross-dot" r="4.5"/></g>`;
+  svg += `<rect x="${M.l}" y="0" width="${pw}" height="${H}" fill="transparent"/>`;
+
+  const label = t("chart_aria", t(s.id), fmtSpan(histRange()));
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">${svg}</svg><div class="chart-tip" hidden></div>`;
+  charts[s.id] = { pts, sx, sy, M, pw, W, unit, dec, tStart, tEnd };
+
+  const svgEl = $("svg", el);
+  svgEl.addEventListener("pointermove", e => {
+    const r = svgEl.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width * W;
+    hoverT = tStart + Math.min(Math.max((x - M.l) / pw, 0), 1) * (tEnd - tStart);
+    drawHover();
+  });
+  svgEl.addEventListener("pointerleave", () => { hoverT = null; drawHover(); });
+  drawHover();
+}
+
+/* One crosshair across all four charts, so the readings line up in time. */
+function drawHover() {
+  for (const s of SERIES) {
+    const c = charts[s.id], el = $("#chart-" + s.id);
+    if (!c) continue;
+    const g = $(".hover", el), tip = $(".chart-tip", el);
+    let best = null;
+    if (hoverT !== null) {
+      for (const p of c.pts) if (p[1] !== null && (!best || Math.abs(p[0] - hoverT) < Math.abs(best[0] - hoverT))) best = p;
+    }
+    if (!best || Math.abs(best[0] - hoverT) > hist.interval_s * 1500) { g.hidden = true; tip.hidden = true; continue; }
+    const x = c.sx(best[0]), y = c.sy(best[1]);
+    $("line", g).setAttribute("x1", x); $("line", g).setAttribute("x2", x);
+    $("circle", g).setAttribute("cx", x); $("circle", g).setAttribute("cy", y);
+    g.hidden = false;
+    tip.innerHTML = `<span>${fmtHM(best[0])}</span> ${num(best[1], c.dec)} ${esc(c.unit)}`;
+    tip.hidden = false;
+    const scale = el.clientWidth / c.W, tw = tip.offsetWidth;
+    const left = x * scale + 12 + tw > el.clientWidth ? x * scale - 12 - tw : x * scale + 12;
+    tip.style.left = `${Math.max(0, left)}px`;
+  }
+}
+
+$$("#hist-range input").forEach(i => i.addEventListener("change", () => { hoverT = null; renderCharts(); }));
+$("#hist-csv").addEventListener("click", () => {
+  if (!hist) return;
+  const times = histTimes();
+  const rows = ["time," + SERIES.map(s => s.key).join(",")];
+  times.forEach((tm, i) => rows.push(new Date(tm).toISOString().slice(0, 19) + "," + SERIES.map(s => hist[s.key][i] ?? "").join(",")));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([rows.join("\n") + "\n"], { type: "text/csv" }));
+  a.download = `${state ? state.device.hostname : "eink-clock"}-history.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
 /* ===================== developer tools ===================== */
 const LOG_MAX_LINES = 3000;
 let logPos = 0, logLines = [], logPartial = "", logPaused = false, logDropped = false, logTimer = null;
@@ -1651,6 +1936,7 @@ $$("[data-lang]").forEach(b => b.addEventListener("click", () => {
   if (state) renderState();
   if (config) { fillMqttForm(); renderLayouts(); renderMetrics(); renderZones(); }
   renderUpdate(); renderLog();
+  if (hist) renderCharts();
 }));
 $$("[data-theme-btn]").forEach(b => b.addEventListener("click", () => {
   theme = b.dataset.themeBtn;
@@ -1673,6 +1959,7 @@ async function init() {
   selectTab(TABS.includes(tab) ? tab : setup ? "network" : "overview");
 
   refreshScreen();
+  refreshHistory();
   setInterval(refreshState, 5000);
   setInterval(refreshScreen, 15000);
   setInterval(() => { if ($("#tab-system").classList.contains("active")) refreshUpdate(); }, 30000);
