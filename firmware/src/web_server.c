@@ -843,9 +843,9 @@ esp_err_t web_server_start(void)
     cfg.uri_match_fn = httpd_uri_match_wildcard;
     cfg.stack_size = 8192;
     cfg.lru_purge_enable = true;
-    cfg.max_open_sockets = 5;
-    cfg.recv_wait_timeout = 10;
-    cfg.send_wait_timeout = 10;
+    cfg.max_open_sockets = 8;
+    cfg.recv_wait_timeout = 30;
+    cfg.send_wait_timeout = 30;
 
     httpd_handle_t server;
     esp_err_t err = httpd_start(&server, &cfg);
