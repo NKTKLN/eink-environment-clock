@@ -1,3 +1,18 @@
+## 0.3.0 (2026-11-05)
+
+### Feat
+
+- **web**: add charts tab with synced crosshair, CSV export and sparklines
+- **history**: keep 24 h of averaged readings and serve /api/history
+
+### Fix
+
+- **web**: wait up to 30s and allow more open sockets
+
+### Perf
+
+- **lwip**: raise TCP buffers for weak links
+
 ## 0.2.0 (2026-11-04)
 
 ### Feat
