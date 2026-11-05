@@ -25,3 +25,9 @@ CONFIG_LOG_MAXIMUM_LEVEL_DEBUG=y
 CONFIG_LWIP_LOCAL_HOSTNAME="eink-clock"
 # HTTP server (5 + 3 internal), captive DNS, MQTT, mDNS
 CONFIG_LWIP_MAX_SOCKETS=16
+
+# Weak link: keep more TCP segments in flight so a lossy Wi-Fi link can still
+# push the ~32 KB page before the HTTP send timeout fires (defaults: 5760).
+CONFIG_LWIP_TCP_SND_BUF_DEFAULT=16384
+# Larger receive window helps OTA uploads and POST bodies over the same link.
+CONFIG_LWIP_TCP_WND_DEFAULT=16384
