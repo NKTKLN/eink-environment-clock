@@ -11,6 +11,7 @@ idf_component_register(
         "epd_ssd1680.c"
         "ha_command.c"
         "http_guard.c"
+        "history.c"
         "ha_discovery.c"
         "log_capture.c"
         "log_ring.c"

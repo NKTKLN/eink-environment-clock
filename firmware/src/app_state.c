@@ -12,6 +12,7 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 
+#include "history.h"
 #include "notify.h"
 
 static SemaphoreHandle_t s_lock;
@@ -24,6 +25,7 @@ static overlay_t s_overlay;
 static int s_overlay_progress = -1;
 static bool s_redraw;
 static bool s_calibrate;
+static history_t s_history;
 
 #define LOCK()   xSemaphoreTake(s_lock, portMAX_DELAY)
 #define UNLOCK() xSemaphoreGive(s_lock)
@@ -39,6 +41,7 @@ void app_state_init(void)
     assert(s_lock != NULL);
     notify_init(&s_user);
     notify_init(&s_system);
+    history_init(&s_history);
     memset(s_frame, 0xFF, sizeof(s_frame));
 
     uint8_t mac[6];
@@ -61,7 +64,17 @@ void app_set_sensors(const sensor_data_t *d)
 {
     LOCK();
     s_sensors = *d;
+    history_add(&s_history, d, app_uptime_ms());
     UNLOCK();
+}
+
+size_t app_history_copy(history_sample_t *out, size_t max, int *age_s)
+{
+    LOCK();
+    size_t n = history_copy(&s_history, out, max);
+    *age_s = history_age_s(&s_history, app_uptime_ms());
+    UNLOCK();
+    return n;
 }
 
 void app_get_sensors(sensor_data_t *d)

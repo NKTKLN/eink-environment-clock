@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #include "epd_geometry.h"
+#include "history.h"
 #include "ui.h"
 
 void app_state_init(void);
@@ -21,6 +22,10 @@ const char *app_version(void);
 
 void app_set_sensors(const sensor_data_t *d);
 void app_get_sensors(sensor_data_t *d);
+
+/* Averaged readings for the charts, oldest first (see history.h).
+ * *age_s = seconds since the newest sample, -1 if there is none yet. */
+size_t app_history_copy(history_sample_t *out, size_t max, int *age_s);
 
 /* User notification (web, MQTT). ttl_s <= 0 = until cleared. */
 void app_notify(const char *text, int ttl_s, bool fullscreen);

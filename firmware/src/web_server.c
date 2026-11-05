@@ -447,6 +447,45 @@ static esp_err_t preview_post(httpd_req_t *req)
 }
 
 /* ===================================================== */
+/* History                                               */
+/* ===================================================== */
+
+typedef struct {
+    httpd_req_t *req;
+    esp_err_t err;
+} chunk_ctx_t;
+
+static void emit_chunk(void *ctx, const char *text, size_t len)
+{
+    chunk_ctx_t *c = ctx;
+    if (c->err == ESP_OK) {
+        c->err = httpd_resp_send_chunk(c->req, text, (ssize_t)len);
+    }
+}
+
+/* GET /api/history: the last 24 h, one averaged point per 2 minutes. */
+static esp_err_t history_get(httpd_req_t *req)
+{
+    ALLOW_READ(req);
+    history_sample_t *buf = malloc(HISTORY_LEN * sizeof(*buf));
+    if (buf == NULL) {
+        return httpd_resp_send_500(req);
+    }
+    int age_s;
+    size_t n = app_history_copy(buf, HISTORY_LEN, &age_s);
+
+    cors(req);
+    httpd_resp_set_type(req, "application/json");
+    chunk_ctx_t c = { req, ESP_OK };
+    history_write_json(buf, n, age_s, emit_chunk, &c);
+    free(buf);
+    if (c.err != ESP_OK) {
+        return c.err;
+    }
+    return httpd_resp_send_chunk(req, NULL, 0);
+}
+
+/* ===================================================== */
 /* Notifications                                         */
 /* ===================================================== */
 
@@ -820,6 +859,7 @@ esp_err_t web_server_start(void)
         { "/api/state", HTTP_GET, state_get, NULL },
         { "/api/config", HTTP_GET, config_get, NULL },
         { "/api/config", HTTP_POST, config_post, NULL },
+        { "/api/history", HTTP_GET, history_get, NULL },
         { "/api/screen.bmp", HTTP_GET, screen_get, NULL },
         { "/api/preview", HTTP_POST, preview_post, NULL },
         { "/api/notify", HTTP_POST, notify_post, NULL },
